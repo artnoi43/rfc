@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 aes = "0.8.2"
 clap = { version = "4.3.0", features = ["derive"] }
+rpassword = "7.2.0"
 thiserror = "1.0.40"

@@ -10,6 +10,7 @@ use aes::cipher::{generic_array::GenericArray, typenum::U16};
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::Aes256;
 use clap::Parser;
+use rpassword::read_password;
 
 use cli::{Args, KeyType};
 
@@ -59,12 +60,10 @@ fn read_file<P: AsRef<std::path::Path>>(filename: P) -> std::io::Result<Vec<u8>>
 }
 
 fn get_passphrase() -> std::io::Result<String> {
-    println!("Enter your password:");
+    println!("Enter your passphrase (will not echo):");
+    let passphrase = read_password()?;
 
-    let mut line = String::new();
-    std::io::stdin().read_line(&mut line)?;
-
-    Ok(line)
+    Ok(passphrase)
 }
 
 fn key_bytes<K: AsRef<[u8]>>(key: K) -> std::io::Result<[u8; 32]> {
