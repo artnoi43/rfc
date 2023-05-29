@@ -1,2 +1,3 @@
 # rfc
-rfc is a Rust rewrite of gfc
+
+rfc is a Rust clone of gfc.
