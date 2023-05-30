@@ -2,6 +2,7 @@
 
 mod cli;
 mod error;
+mod rfc;
 
 use std::io::Write;
 
@@ -12,21 +13,14 @@ use aes::Aes256;
 use clap::Parser;
 use rpassword::read_password;
 
-use cli::{Args, KeyType};
-
 fn main() {
     // Parse CLI arguments and read infile
-    let args = Args::parse();
+    let args = cli::Args::parse();
 
     // Prepare key
-    let key = match args.key_type {
-        KeyType::Passphrase => key_bytes(get_passphrase().expect("failed to read passphrase"))
-            .expect("failed to get passphrase bytes"),
-        KeyType::KeyFile => key_bytes("this is my key").expect("failed to get key bytes"),
-    };
-
+    let key = get_key(args.key_type, args.key_file).expect("failed to get encryption key");
     // Read bytes from infile
-    let bytes = read_file(&args.filename).unwrap();
+    let bytes = read_file(&args.filename).expect("failed to read infile");
     // Chunk file bytes into block sized chunks.
     let bytes = aes_blocks(bytes);
 
@@ -59,11 +53,25 @@ fn read_file<P: AsRef<std::path::Path>>(filename: P) -> std::io::Result<Vec<u8>>
     std::fs::read(filename)
 }
 
-fn get_passphrase() -> std::io::Result<String> {
+fn get_passphrase<'a>() -> std::io::Result<Vec<u8>> {
     println!("Enter your passphrase (will not echo):");
     let passphrase = read_password()?;
 
-    Ok(passphrase)
+    Ok(passphrase.as_bytes().to_owned())
+}
+
+fn get_key<P: AsRef<std::path::Path>>(
+    key_type: cli::KeyType,
+    key_file: Option<P>,
+) -> std::io::Result<[u8; 32]> {
+    let key = match key_type {
+        cli::KeyType::Passphrase => get_passphrase().expect("failed to read passphrase"),
+        cli::KeyType::KeyFile => {
+            read_file(key_file.expect("no keyfile specified")).expect("failed to read key file")
+        }
+    };
+
+    key_bytes(key)
 }
 
 fn key_bytes<K: AsRef<[u8]>>(key: K) -> std::io::Result<[u8; 32]> {

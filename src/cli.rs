@@ -1,7 +1,5 @@
 use clap::{Parser, ValueEnum};
 
-use std::path::PathBuf;
-
 #[derive(Clone, Debug, ValueEnum)]
 pub enum Encoding {
     Plain,
@@ -36,23 +34,50 @@ impl std::fmt::Display for KeyType {
     }
 }
 
+type Filename = String;
+
+fn validate_filename(name: &str) -> Result<Filename, String> {
+    if name.is_empty() {
+        return Err(String::from("empty filename"));
+    }
+
+    Ok(name.to_string())
+}
+
+#[test]
+fn validate_filename_test() {
+    assert!(validate_filename("").is_err());
+    assert!(validate_filename("foo").is_ok());
+}
+
 #[derive(Debug, Parser)]
+#[clap(
+    author = "github.com/artnoi43",
+    version,
+    about = "A simple, stupid Rust clone of gfc - a file encryption utility"
+)]
 pub struct Args {
-    #[arg(short, long)]
+    // Input file
+    #[arg(value_parser = validate_filename)]
+    pub filename: Filename,
+
+    #[arg(short, long, default_value_t = false)]
+    // Decrypt file
     pub decrypt: bool,
 
-    #[arg(short, long)]
-    pub filename: PathBuf,
+    #[arg(short, long, value_parser = validate_filename)]
+    // Output file
+    pub outfile: Filename,
 
-    #[arg(short, long)]
-    pub outfile: PathBuf,
-
-    #[arg(short, long, default_value_t = KeyType::Passphrase)]
+    #[arg(short, long = "key", default_value_t = KeyType::Passphrase)]
+    // Encryption key type - can be either passphrase or key file
     pub key_type: KeyType,
 
-    #[arg(short, long, default_value_t = Encoding::Plain)]
-    pub input_decoding: Encoding,
+    #[arg(short = 'f', long, value_parser = validate_filename)]
+    // Encryprion key file
+    pub key_file: Option<Filename>,
 
     #[arg(short, long, default_value_t = Encoding::Plain)]
-    pub output_encoding: Encoding,
+    // Encoding to decode input
+    pub encoding: Encoding,
 }
