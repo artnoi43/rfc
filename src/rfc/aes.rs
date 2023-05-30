@@ -6,52 +6,38 @@ use std::io::Write;
 
 type BlockAes = GenericArray<u8, U16>;
 
-pub struct CipherAes<const KEY_SIZE: usize> {
-    blocks: Vec<BlockAes>,
-    key: [u8; KEY_SIZE],
-}
-
-impl<const KEY_SIZE: usize> CipherAes<KEY_SIZE> {
-    fn new(bytes: Vec<u8>, key: Vec<u8>) -> Self {
-        return Self {
-            blocks: aes_blocks(bytes),
-            key: key_bytes::<KEY_SIZE, Vec<u8>>(key),
-        };
-    }
-}
-
-pub struct CipherAes128(CipherAes<16>);
-pub struct CipherAes256(CipherAes<32>);
+pub struct CipherAes128 {}
+pub struct CipherAes256 {}
 
 impl super::Cipher for CipherAes128 {
-    fn new(bytes: Vec<u8>, key: Vec<u8>) -> Self {
-        Self(CipherAes::<16>::new(bytes, key))
+    fn encrypt(bytes: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+        let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
+        Aes128::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
+
+        aes_blocks_to_bytes(blocks)
     }
 
-    fn encrypt(mut self) -> Vec<u8> {
-        Aes128::new(&GenericArray::from(self.0.key)).encrypt_blocks(&mut self.0.blocks);
-        aes_blocks_to_bytes(self.0.blocks)
-    }
+    fn decrypt(bytes: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+        let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
+        Aes128::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
-    fn decrypt(mut self) -> Vec<u8> {
-        Aes128::new(&GenericArray::from(self.0.key)).decrypt_blocks(&mut self.0.blocks);
-        aes_blocks_to_bytes(self.0.blocks)
+        aes_blocks_to_bytes(blocks)
     }
 }
 
 impl super::Cipher for CipherAes256 {
-    fn new(bytes: Vec<u8>, key: Vec<u8>) -> Self {
-        Self(CipherAes::<32>::new(bytes, key))
+    fn encrypt(bytes: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+        let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
+        Aes256::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
+
+        aes_blocks_to_bytes(blocks)
     }
 
-    fn encrypt(mut self) -> Vec<u8> {
-        Aes256::new(&GenericArray::from(self.0.key)).encrypt_blocks(&mut self.0.blocks);
-        aes_blocks_to_bytes(self.0.blocks)
-    }
+    fn decrypt(bytes: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+        let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
+        Aes256::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
-    fn decrypt(mut self) -> Vec<u8> {
-        Aes256::new(&GenericArray::from(self.0.key)).decrypt_blocks(&mut self.0.blocks);
-        aes_blocks_to_bytes(self.0.blocks)
+        aes_blocks_to_bytes(blocks)
     }
 }
 
@@ -74,7 +60,7 @@ fn aes_blocks_to_bytes(blocks: Vec<BlockAes>) -> Vec<u8> {
         .collect::<Vec<_>>()
 }
 
-fn key_bytes<const KEY_SIZE: usize, K: AsRef<[u8]>>(key: K) -> [u8; KEY_SIZE] {
+fn aes_key<const KEY_SIZE: usize, K: AsRef<[u8]>>(key: K) -> [u8; KEY_SIZE] {
     let mut bytes = [0u8; KEY_SIZE];
     let mut buf = &mut bytes[..];
 

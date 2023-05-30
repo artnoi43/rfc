@@ -9,15 +9,10 @@ pub enum Mode {
 }
 
 pub trait Cipher {
-    // Give bytes and key when creating cipher
-    fn new(bytes: Vec<u8>, key: Vec<u8>) -> Self
-    where
-        Self: Sized;
-
     // Encryption consumes the cipher
-    fn encrypt(self) -> Vec<u8>;
+    fn encrypt(bytes: Vec<u8>, key: Vec<u8>) -> Vec<u8>;
     // Decryption consumes the cipher
-    fn decrypt(self) -> Vec<u8>;
+    fn decrypt(bytes: Vec<u8>, key: Vec<u8>) -> Vec<u8>;
 }
 
 fn pre_process(bytes: Vec<u8>, decrypt: bool, key: Vec<u8>, codec: cli::Encoding) -> Vec<u8> {
