@@ -1,3 +1,4 @@
+// TODO: pad bytes
 use aes::cipher::{generic_array::GenericArray, typenum::U16};
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::{Aes128, Aes256};
@@ -10,14 +11,14 @@ pub struct CipherAes128 {}
 pub struct CipherAes256 {}
 
 impl super::Cipher for CipherAes128 {
-    fn encrypt(bytes: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+    fn encrypt<T: AsRef<[u8]>>(bytes: T, key: T) -> Vec<u8> {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
         Aes128::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
 
         aes_blocks_to_bytes(blocks)
     }
 
-    fn decrypt(bytes: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+    fn decrypt<T: AsRef<[u8]>>(bytes: T, key: T) -> Vec<u8> {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
         Aes128::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
@@ -26,14 +27,15 @@ impl super::Cipher for CipherAes128 {
 }
 
 impl super::Cipher for CipherAes256 {
-    fn encrypt(bytes: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+    fn encrypt<T: AsRef<[u8]>>(bytes: T, key: T) -> Vec<u8> {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
+
         Aes256::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
 
         aes_blocks_to_bytes(blocks)
     }
 
-    fn decrypt(bytes: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+    fn decrypt<T: AsRef<[u8]>>(bytes: T, key: T) -> Vec<u8> {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
         Aes256::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
@@ -67,4 +69,20 @@ fn aes_key<const KEY_SIZE: usize, K: AsRef<[u8]>>(key: K) -> [u8; KEY_SIZE] {
     buf.write_all(key.as_ref())
         .expect(format!("failed to create AES-{} key", 32 * 8).as_str());
     bytes
+}
+
+#[test]
+fn test_aes_256() {
+    use super::Cipher;
+
+    let plaintext = "plaintext plaintext plaintext plaintext";
+    let key = "this_is_my_key";
+    println!("plaintext {:?}", plaintext.clone());
+    let ciphertext = CipherAes256::encrypt(plaintext.clone(), &key);
+    assert!(ciphertext.len() != 0);
+
+    assert_eq!(
+        plaintext.as_bytes().to_owned(),
+        CipherAes256::decrypt(ciphertext, key.into())
+    );
 }

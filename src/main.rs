@@ -22,7 +22,7 @@ fn main() {
     // Read bytes from infile
     let bytes = read_file(&args.filename).expect("failed to read infile");
     // Chunk file bytes into block sized chunks.
-    let bytes = bytes_to_blocks::<Vec<u8>, 16>(bytes);
+    let bytes = bytes_chunks::<Vec<u8>, 16>(bytes);
 
     // Prepare AES blocks
     let mut blocks: Vec<GenericArray<u8, U16>> = Vec::with_capacity(bytes.len());
@@ -82,7 +82,7 @@ fn key_bytes<K: AsRef<[u8]>>(key: K) -> std::io::Result<[u8; 32]> {
     Ok(bytes)
 }
 
-pub fn bytes_to_blocks<B: AsRef<[u8]>, const BLOCKSIZE: usize>(bytes: B) -> Vec<[u8; BLOCKSIZE]> {
+pub fn bytes_chunks<B: AsRef<[u8]>, const BLOCKSIZE: usize>(bytes: B) -> Vec<[u8; BLOCKSIZE]> {
     let mut vecs: Vec<[u8; BLOCKSIZE]> = Vec::with_capacity(bytes.as_ref().len() / BLOCKSIZE);
 
     for chunk in bytes.as_ref().array_chunks::<BLOCKSIZE>() {
