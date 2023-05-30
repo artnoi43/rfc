@@ -44,7 +44,7 @@ impl super::Cipher for CipherAes256 {
 }
 
 fn aes_blocks<B: AsRef<[u8]>>(bytes: B) -> Vec<BlockAes> {
-    let chunks = super::bytes_chunks(bytes);
+    let chunks = super::bytes_chunks::<16, B>(bytes);
 
     let mut blocks: Vec<BlockAes> = Vec::with_capacity(chunks.len());
     for chunk in chunks {
@@ -68,6 +68,7 @@ fn aes_key<const KEY_SIZE: usize, K: AsRef<[u8]>>(key: K) -> [u8; KEY_SIZE] {
 
     buf.write_all(key.as_ref())
         .expect(format!("failed to create AES-{} key", 32 * 8).as_str());
+
     bytes
 }
 
@@ -75,14 +76,15 @@ fn aes_key<const KEY_SIZE: usize, K: AsRef<[u8]>>(key: K) -> [u8; KEY_SIZE] {
 fn test_aes_256() {
     use super::Cipher;
 
-    let plaintext = "plaintext plaintext plaintext plaintext";
+    let plaintext = include_str!("../../Cargo.toml");
     let key = "this_is_my_key";
-    println!("plaintext {:?}", plaintext.clone());
     let ciphertext = CipherAes256::encrypt(plaintext.clone(), &key);
     assert!(ciphertext.len() != 0);
 
+    let result = CipherAes256::decrypt(ciphertext, key.into());
+
     assert_eq!(
-        plaintext.as_bytes().to_owned(),
-        CipherAes256::decrypt(ciphertext, key.into())
+        plaintext,
+        String::from_utf8(result).expect("failed to convert result back to string")
     );
 }
