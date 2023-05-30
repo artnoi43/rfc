@@ -1,4 +1,3 @@
-// TODO: pad bytes
 use aes::cipher::{generic_array::GenericArray, typenum::U16};
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::{Aes128, Aes256};
@@ -38,7 +37,6 @@ impl super::Cipher for CipherAes256 {
         T: AsRef<[u8]>,
     {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
-
         Aes256::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
 
         aes_blocks_to_bytes(blocks)
@@ -60,8 +58,8 @@ where
     T: AsRef<[u8]>,
 {
     let chunks = super::bytes_chunks::<16, T>(bytes);
-
     let mut blocks: Vec<BlockAes> = Vec::with_capacity(chunks.len());
+
     for chunk in chunks {
         blocks.push(GenericArray::from(chunk));
     }
