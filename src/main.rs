@@ -25,7 +25,10 @@ fn main() {
     }
 }
 
-fn read_file<P: AsRef<std::path::Path>>(filename: P) -> std::io::Result<Vec<u8>> {
+fn read_file<P>(filename: P) -> std::io::Result<Vec<u8>>
+where
+    P: AsRef<std::path::Path>,
+{
     std::fs::read(filename)
 }
 
@@ -36,10 +39,10 @@ fn get_passphrase<'a>() -> std::io::Result<Vec<u8>> {
     Ok(passphrase.as_bytes().to_owned())
 }
 
-fn get_key<P: AsRef<std::path::Path>>(
-    key_type: cli::KeyType,
-    key_file: Option<P>,
-) -> std::io::Result<Vec<u8>> {
+fn get_key<P>(key_type: cli::KeyType, key_file: Option<P>) -> std::io::Result<Vec<u8>>
+where
+    P: AsRef<std::path::Path>,
+{
     let key = match key_type {
         cli::KeyType::Passphrase => get_passphrase().expect("failed to read passphrase"),
         cli::KeyType::KeyFile => {
@@ -60,9 +63,10 @@ pub fn bytes_chunks<B: AsRef<[u8]>, const BLOCKSIZE: usize>(bytes: B) -> Vec<[u8
     vecs
 }
 
-fn write_out<P: AsRef<std::path::Path>, B: AsRef<[u8]>>(
-    outfile: P,
-    data: B,
-) -> std::io::Result<()> {
+fn write_out<P, T>(outfile: P, data: T) -> std::io::Result<()>
+where
+    P: AsRef<std::path::Path>,
+    T: AsRef<[u8]>,
+{
     std::fs::write(outfile, data.as_ref())
 }

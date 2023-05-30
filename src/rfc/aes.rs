@@ -90,6 +90,7 @@ where
 
 #[test]
 fn test_aes_256() {
+    // TODO: Remove padded 0s in decryption
     use super::Cipher;
 
     let plaintext = include_str!("../../Cargo.toml");
@@ -100,6 +101,6 @@ fn test_aes_256() {
     let result = CipherAes256::decrypt(ciphertext, key.into());
     assert_eq!(
         plaintext,
-        String::from_utf8(result).expect("failed to convert result back to string")
+        String::from_utf8(result).expect("bytes not UTF-8")
     );
 }
