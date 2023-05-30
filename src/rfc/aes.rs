@@ -11,14 +11,20 @@ pub struct CipherAes128 {}
 pub struct CipherAes256 {}
 
 impl super::Cipher for CipherAes128 {
-    fn encrypt<T: AsRef<[u8]>>(bytes: T, key: T) -> Vec<u8> {
+    fn encrypt<T>(bytes: T, key: T) -> Vec<u8>
+    where
+        T: AsRef<[u8]>,
+    {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
         Aes128::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
 
         aes_blocks_to_bytes(blocks)
     }
 
-    fn decrypt<T: AsRef<[u8]>>(bytes: T, key: T) -> Vec<u8> {
+    fn decrypt<T>(bytes: T, key: T) -> Vec<u8>
+    where
+        T: AsRef<[u8]>,
+    {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
         Aes128::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
@@ -27,7 +33,10 @@ impl super::Cipher for CipherAes128 {
 }
 
 impl super::Cipher for CipherAes256 {
-    fn encrypt<T: AsRef<[u8]>>(bytes: T, key: T) -> Vec<u8> {
+    fn encrypt<T>(bytes: T, key: T) -> Vec<u8>
+    where
+        T: AsRef<[u8]>,
+    {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
 
         Aes256::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
@@ -35,7 +44,10 @@ impl super::Cipher for CipherAes256 {
         aes_blocks_to_bytes(blocks)
     }
 
-    fn decrypt<T: AsRef<[u8]>>(bytes: T, key: T) -> Vec<u8> {
+    fn decrypt<T>(bytes: T, key: T) -> Vec<u8>
+    where
+        T: AsRef<[u8]>,
+    {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
         Aes256::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
@@ -43,8 +55,11 @@ impl super::Cipher for CipherAes256 {
     }
 }
 
-fn aes_blocks<B: AsRef<[u8]>>(bytes: B) -> Vec<BlockAes> {
-    let chunks = super::bytes_chunks::<16, B>(bytes);
+fn aes_blocks<T>(bytes: T) -> Vec<BlockAes>
+where
+    T: AsRef<[u8]>,
+{
+    let chunks = super::bytes_chunks::<16, T>(bytes);
 
     let mut blocks: Vec<BlockAes> = Vec::with_capacity(chunks.len());
     for chunk in chunks {
@@ -62,7 +77,10 @@ fn aes_blocks_to_bytes(blocks: Vec<BlockAes>) -> Vec<u8> {
         .collect::<Vec<_>>()
 }
 
-fn aes_key<const KEY_SIZE: usize, K: AsRef<[u8]>>(key: K) -> [u8; KEY_SIZE] {
+fn aes_key<const KEY_SIZE: usize, K>(key: K) -> [u8; KEY_SIZE]
+where
+    K: AsRef<[u8]>,
+{
     let mut bytes = [0u8; KEY_SIZE];
     let mut buf = &mut bytes[..];
 
@@ -82,7 +100,6 @@ fn test_aes_256() {
     assert!(ciphertext.len() != 0);
 
     let result = CipherAes256::decrypt(ciphertext, key.into());
-
     assert_eq!(
         plaintext,
         String::from_utf8(result).expect("failed to convert result back to string")

@@ -1,5 +1,7 @@
 use clap::{Parser, ValueEnum};
 
+use crate::rfc::encoding;
+
 #[derive(Clone, Debug, ValueEnum)]
 pub enum Cipher {
     Aes128,
@@ -11,25 +13,6 @@ impl std::fmt::Display for Cipher {
         match self {
             Self::Aes128 => write!(f, "aes128"),
             Self::Aes256 => write!(f, "aes256"),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, ValueEnum)]
-pub enum Encoding {
-    Plain,
-    Hex,
-    B64,
-    Bin,
-}
-
-impl std::fmt::Display for Encoding {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Plain => write!(f, "plain"),
-            Self::Hex => write!(f, "hex"),
-            Self::B64 => write!(f, "b64"),
-            Self::Bin => write!(f, "bin"),
         }
     }
 }
@@ -95,7 +78,7 @@ pub struct Args {
     // Encryprion key file
     pub key_file: Option<Filename>,
 
-    #[arg(short, long, default_value_t = Encoding::Plain)]
+    #[arg(short, long, default_value_t = encoding::Encoding::Plain)]
     // Encoding to decode input
-    pub encoding: Encoding,
+    pub encoding: encoding::Encoding,
 }
