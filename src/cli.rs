@@ -1,6 +1,21 @@
 use clap::{Parser, ValueEnum};
 
 #[derive(Clone, Debug, ValueEnum)]
+pub enum Cipher {
+    Aes128,
+    Aes256,
+}
+
+impl std::fmt::Display for Cipher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Aes128 => write!(f, "aes128"),
+            Self::Aes256 => write!(f, "aes256"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, ValueEnum)]
 pub enum Encoding {
     Plain,
     Hex,
@@ -60,6 +75,9 @@ pub struct Args {
     // Input file
     #[arg(value_parser = validate_filename)]
     pub filename: Filename,
+
+    #[arg(short, long, default_value_t = Cipher::Aes256)]
+    pub cipher: Cipher,
 
     #[arg(short, long, default_value_t = false)]
     // Decrypt file
