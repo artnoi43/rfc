@@ -1,17 +1,17 @@
-mod aes;
+pub mod aes;
 
 use self::aes::{CipherAes128, CipherAes256};
 use crate::cli;
 
 use std::io::Write;
 
-enum Mode {
+pub enum Mode {
     Aes128,
     Aes256,
 }
 
 pub trait Cipher {
-    fn crypt(bytes: Vec<u8>, key: Vec<u8>, decrypt: bool) -> Vec<u8> {
+    fn crypt<T: AsRef<[u8]>>(bytes: T, key: T, decrypt: bool) -> Vec<u8> {
         if decrypt {
             return Self::decrypt(bytes, key);
         }
@@ -24,18 +24,18 @@ pub trait Cipher {
     fn decrypt<T: AsRef<[u8]>>(bytes: T, key: T) -> Vec<u8>;
 }
 
-fn pre_process(bytes: Vec<u8>, decrypt: bool, key: Vec<u8>, codec: cli::Encoding) -> Vec<u8> {
+pub fn pre_process(bytes: Vec<u8>, decrypt: bool, codec: cli::Encoding) -> Vec<u8> {
     bytes
 }
 
-fn crypt(bytes: Vec<u8>, decrypt: bool, key: Vec<u8>, cipher: Mode) -> Vec<u8> {
+pub fn crypt<T: AsRef<[u8]>>(bytes: T, decrypt: bool, key: T, cipher: Mode) -> Vec<u8> {
     match cipher {
         Mode::Aes128 => CipherAes128::crypt(bytes, key, decrypt),
         Mode::Aes256 => CipherAes256::crypt(bytes, key, decrypt),
     }
 }
 
-fn post_process(bytes: Vec<u8>, decrypt: bool, codec: cli::Encoding) -> Vec<u8> {
+pub fn post_process(bytes: Vec<u8>, decrypt: bool, codec: cli::Encoding) -> Vec<u8> {
     bytes
 }
 

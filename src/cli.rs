@@ -15,7 +15,7 @@ impl std::fmt::Display for Cipher {
     }
 }
 
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Copy, Clone, Debug, ValueEnum)]
 pub enum Encoding {
     Plain,
     Hex,

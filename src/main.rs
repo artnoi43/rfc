@@ -4,12 +4,6 @@ mod cli;
 mod error;
 mod rfc;
 
-use std::io::Write;
-
-// TODO: Use AEAD
-use aes::cipher::{generic_array::GenericArray, typenum::U16};
-use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
-use aes::Aes256;
 use clap::Parser;
 use rpassword::read_password;
 
@@ -21,30 +15,11 @@ fn main() {
     let key = get_key(args.key_type, args.key_file).expect("failed to get encryption key");
     // Read bytes from infile
     let bytes = read_file(&args.filename).expect("failed to read infile");
-    // Chunk file bytes into block sized chunks.
-    let bytes = bytes_chunks::<Vec<u8>, 16>(bytes);
+    let bytes = rfc::pre_process(bytes, args.decrypt, args.encoding);
+    let bytes = rfc::crypt(bytes, args.decrypt, key, rfc::Mode::Aes256);
+    let bytes = rfc::post_process(bytes, args.decrypt, args.encoding);
 
-    // Prepare AES blocks
-    let mut blocks: Vec<GenericArray<u8, U16>> = Vec::with_capacity(bytes.len());
-    for block in bytes {
-        blocks.push(GenericArray::from(block));
-    }
-
-    // Prepare cipher
-    let cipher = Aes256::new(&GenericArray::from(key));
-
-    match args.decrypt {
-        false => cipher.encrypt_blocks(&mut blocks),
-        true => cipher.decrypt_blocks(&mut blocks),
-    }
-
-    let blocks = blocks
-        .into_iter()
-        .map(|block| block.as_slice().to_owned())
-        .flat_map(|slice| slice.into_iter().map(|byte| byte.to_owned()))
-        .collect::<Vec<_>>();
-
-    if let Err(err) = write_out(args.outfile, &blocks) {
+    if let Err(err) = write_out(args.outfile, &bytes) {
         eprintln!("failed to write output to stdout: {}", err)
     }
 }
@@ -63,7 +38,7 @@ fn get_passphrase<'a>() -> std::io::Result<Vec<u8>> {
 fn get_key<P: AsRef<std::path::Path>>(
     key_type: cli::KeyType,
     key_file: Option<P>,
-) -> std::io::Result<[u8; 32]> {
+) -> std::io::Result<Vec<u8>> {
     let key = match key_type {
         cli::KeyType::Passphrase => get_passphrase().expect("failed to read passphrase"),
         cli::KeyType::KeyFile => {
@@ -71,15 +46,7 @@ fn get_key<P: AsRef<std::path::Path>>(
         }
     };
 
-    key_bytes(key)
-}
-
-fn key_bytes<K: AsRef<[u8]>>(key: K) -> std::io::Result<[u8; 32]> {
-    let mut bytes = [0u8; 32];
-    let mut buf = &mut bytes[..];
-
-    buf.write_all(key.as_ref())?;
-    Ok(bytes)
+    Ok(key)
 }
 
 pub fn bytes_chunks<B: AsRef<[u8]>, const BLOCKSIZE: usize>(bytes: B) -> Vec<[u8; BLOCKSIZE]> {
