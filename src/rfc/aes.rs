@@ -57,7 +57,7 @@ fn aes_blocks<T>(bytes: T) -> Vec<BlockAes>
 where
     T: AsRef<[u8]>,
 {
-    let chunks = super::bytes_chunks::<16, T>(bytes);
+    let (chunks, _padded) = super::buf::bytes_chunks::<16, T>(bytes);
     let mut blocks: Vec<BlockAes> = Vec::with_capacity(chunks.len());
 
     for chunk in chunks {
