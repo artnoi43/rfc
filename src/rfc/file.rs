@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::error::RfcError;
+
 // use super::{encoding::Encoding, Mode};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
@@ -18,27 +20,25 @@ pub(crate) struct Header {
 }
 
 impl RfcFile {
-    pub fn encode(&self) -> Result<Vec<u8>, String> {
-        match bincode::serialize(&self) {
-            Ok(v) => Ok(v),
-            Err(err) => Err(format!(
+    pub fn encode(&self) -> Result<Vec<u8>, RfcError> {
+        bincode::serialize(&self).map_err(|err| {
+            RfcError::Serialize(format!(
                 "failed to serialize to bincode: {}",
                 err.to_string()
-            )),
-        }
+            ))
+        })
     }
 
-    pub fn decode<T>(bytes: T) -> Result<Self, String>
+    pub fn decode<T>(bytes: T) -> Result<Self, RfcError>
     where
         T: AsRef<[u8]>,
     {
-        match bincode::deserialize(bytes.as_ref()) {
-            Ok(v) => Ok(v),
-            Err(err) => Err(format!(
-                "failed to deserialize from bincode: {}",
+        bincode::deserialize(bytes.as_ref()).map_err(|err| {
+            RfcError::Deserialize(format!(
+                "failed to serialize to bincode: {}",
                 err.to_string()
-            )),
-        }
+            ))
+        })
     }
 }
 
@@ -59,8 +59,8 @@ mod tests {
         };
 
         return RfcFile {
-            header: header.clone(),
-            data: content.clone(),
+            header,
+            data: content,
         };
     }
 

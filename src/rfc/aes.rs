@@ -4,52 +4,54 @@ use aes::{Aes128, Aes256};
 
 use std::io::Write;
 
+use super::error::RfcError;
+
 type BlockAes = GenericArray<u8, U16>;
 
 pub struct CipherAes128 {}
 pub struct CipherAes256 {}
 
 impl super::Cipher for CipherAes128 {
-    fn encrypt<T>(bytes: T, key: T) -> Vec<u8>
+    fn encrypt<T>(bytes: T, key: T) -> Result<Vec<u8>, RfcError>
     where
         T: AsRef<[u8]>,
     {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
         Aes128::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
 
-        aes_blocks_to_bytes(blocks)
+        Ok(aes_blocks_to_bytes(blocks))
     }
 
-    fn decrypt<T>(bytes: T, key: T) -> Vec<u8>
+    fn decrypt<T>(bytes: T, key: T) -> Result<Vec<u8>, RfcError>
     where
         T: AsRef<[u8]>,
     {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
         Aes128::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
-        aes_blocks_to_bytes(blocks)
+        Ok(aes_blocks_to_bytes(blocks))
     }
 }
 
 impl super::Cipher for CipherAes256 {
-    fn encrypt<T>(bytes: T, key: T) -> Vec<u8>
+    fn encrypt<T>(bytes: T, key: T) -> Result<Vec<u8>, RfcError>
     where
         T: AsRef<[u8]>,
     {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
         Aes256::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
 
-        aes_blocks_to_bytes(blocks)
+        Ok(aes_blocks_to_bytes(blocks))
     }
 
-    fn decrypt<T>(bytes: T, key: T) -> Vec<u8>
+    fn decrypt<T>(bytes: T, key: T) -> Result<Vec<u8>, RfcError>
     where
         T: AsRef<[u8]>,
     {
         let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
         Aes256::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
-        aes_blocks_to_bytes(blocks)
+        Ok(aes_blocks_to_bytes(blocks))
     }
 }
 
@@ -95,10 +97,10 @@ fn test_aes_256() {
 
     let plaintext = include_str!("../../Cargo.toml");
     let key = "this_is_my_key";
-    let ciphertext = CipherAes256::encrypt(plaintext.clone(), &key);
+    let ciphertext = CipherAes256::encrypt(plaintext.clone(), &key).expect("encryption failed");
     assert!(ciphertext.len() != 0);
 
-    let result = CipherAes256::decrypt(ciphertext, key.into());
+    let result = CipherAes256::decrypt(ciphertext, key.into()).expect("decryption failed");
     assert_eq!(
         plaintext,
         String::from_utf8(result).expect("bytes not UTF-8")

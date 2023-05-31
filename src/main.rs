@@ -6,7 +6,9 @@ mod rfc;
 use clap::Parser;
 use rpassword::read_password;
 
-fn main() {
+use rfc::error::RfcError;
+
+fn main() -> Result<(), RfcError> {
     // Parse CLI arguments and read infile
     let args = cli::Args::parse();
 
@@ -15,13 +17,15 @@ fn main() {
     // Read bytes from infile
     let mut bytes = read_file(&args.filename).expect("failed to read infile");
 
-    bytes = rfc::pre_process(bytes, args.decrypt, args.encoding);
-    bytes = rfc::crypt(bytes, args.decrypt, key, rfc::Mode::Aes256);
-    bytes = rfc::post_process(bytes, args.decrypt, args.encoding);
+    bytes = rfc::pre_process(bytes, args.decrypt, args.encoding)?;
+    bytes = rfc::crypt(bytes, args.decrypt, key, rfc::Mode::Aes256)?;
+    bytes = rfc::post_process(bytes, args.decrypt, args.encoding)?;
 
     if let Err(err) = write_out(args.outfile, &bytes) {
-        eprintln!("failed to write output to stdout: {}", err)
+        eprintln!("failed to write output to stdout: {}", err);
     }
+
+    Ok(())
 }
 
 fn read_file<P>(filename: P) -> std::io::Result<Vec<u8>>
@@ -38,7 +42,7 @@ fn get_passphrase<'a>() -> std::io::Result<Vec<u8>> {
     Ok(passphrase.as_bytes().to_owned())
 }
 
-fn get_key<P>(key_type: cli::KeyType, key_file: Option<P>) -> std::io::Result<Vec<u8>>
+fn get_key<P>(key_type: cli::KeyType, key_file: Option<P>) -> Result<Vec<u8>, RfcError>
 where
     P: AsRef<std::path::Path>,
 {
@@ -50,16 +54,6 @@ where
     };
 
     Ok(key)
-}
-
-pub fn bytes_chunks<B: AsRef<[u8]>, const BLOCKSIZE: usize>(bytes: B) -> Vec<[u8; BLOCKSIZE]> {
-    let mut vecs: Vec<[u8; BLOCKSIZE]> = Vec::with_capacity(bytes.as_ref().len() / BLOCKSIZE);
-
-    for chunk in bytes.as_ref().array_chunks::<BLOCKSIZE>() {
-        vecs.push(*chunk)
-    }
-
-    vecs
 }
 
 fn write_out<P, T>(outfile: P, data: T) -> std::io::Result<()>
