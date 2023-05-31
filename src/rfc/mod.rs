@@ -1,6 +1,7 @@
 pub mod aes;
 pub mod buf;
 pub mod encoding;
+mod file;
 
 use self::aes::{CipherAes128, CipherAes256};
 
