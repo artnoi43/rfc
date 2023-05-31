@@ -1,7 +1,6 @@
 #![feature(array_chunks)]
 
 mod cli;
-mod error;
 mod rfc;
 
 use clap::Parser;
