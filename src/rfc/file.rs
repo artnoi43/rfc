@@ -1,14 +1,17 @@
 use serde::{Deserialize, Serialize};
 
+use super::Mode;
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub(crate) struct RfcFile {
-    pub header: Option<Header>,
+    pub header: Header,
     pub data: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 
 pub(crate) struct Header {
+    mode: Mode,
     padding: Option<usize>,
     salt: Option<Vec<u8>>,
 }
@@ -24,12 +27,13 @@ mod tests {
         let padding = 16usize;
 
         let header = Header {
+            mode: Mode::Aes256,
             padding: Some(padding),
             salt: Some(salt.clone()),
         };
 
         return RfcFile {
-            header: Some(header.clone()),
+            header: header.clone(),
             data: content.clone(),
         };
     }
@@ -41,13 +45,6 @@ mod tests {
         let bytes = bincode::serialize(&f).expect("failed to serialize");
         let decoded = bincode::deserialize::<RfcFile>(&bytes[..]).expect("failed to deserialize");
         assert_eq!(f.clone(), decoded);
-
-        let mut f = f.clone();
-        f.header = None;
-
-        let bytes = bincode::serialize(&f).expect("failed to serialize");
-        let decoded = bincode::deserialize(&bytes[..]).expect("failed to deserialize");
-        assert_eq!(f, decoded);
     }
 
     #[test]
@@ -55,23 +52,27 @@ mod tests {
         let f = new_file();
 
         let f_no_padding = RfcFile {
-            header: Some(Header {
+            header: Header {
                 padding: None,
-                ..f.clone().header.unwrap()
-            }),
+                ..f.header.clone()
+            },
             ..f.clone()
         };
 
         let f_no_salt = RfcFile {
-            header: Some(Header {
+            header: Header {
                 salt: None,
-                ..f.clone().header.unwrap()
-            }),
+                ..f.header.clone()
+            },
             ..f.clone()
         };
 
         let f_no_header = RfcFile {
-            header: None,
+            header: Header {
+                padding: None,
+                salt: None,
+                ..f.header.clone()
+            },
             ..f.clone()
         };
 

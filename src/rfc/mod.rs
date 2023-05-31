@@ -3,8 +3,11 @@ pub mod buf;
 pub mod encoding;
 mod file;
 
+use serde::{Deserialize, Serialize};
+
 use self::aes::{CipherAes128, CipherAes256};
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum Mode {
     Aes128,
     Aes256,
