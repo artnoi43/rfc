@@ -25,12 +25,10 @@ pub trait Cipher {
         Self::encrypt(bytes, key)
     }
 
-    // Encryption consumes the cipher
     fn encrypt<T>(bytes: T, key: T) -> Vec<u8>
     where
         T: AsRef<[u8]>;
 
-    // Decryption consumes the cipher
     fn decrypt<T>(bytes: T, key: T) -> Vec<u8>
     where
         T: AsRef<[u8]>;

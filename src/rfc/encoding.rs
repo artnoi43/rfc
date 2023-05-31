@@ -1,6 +1,9 @@
 use clap;
+// use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, clap::ValueEnum)]
+// #[derive(Copy, Clone, Debug, PartialEq, clap::ValueEnum, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, clap::ValueEnum)]
+
 pub enum Encoding {
     Plain,
     Hex,
