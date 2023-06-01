@@ -4,15 +4,13 @@ pub mod encoding;
 pub mod error;
 mod file;
 
-use serde::{Deserialize, Serialize};
-
 use self::aes::{
     raw::{CipherRawAes128, CipherRawAes256},
     CipherAes,
 };
 use error::RfcError;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Mode {
     Aes128,
     Aes256,

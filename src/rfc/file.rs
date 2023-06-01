@@ -1,10 +1,11 @@
-use serde::{Deserialize, Serialize};
+use rkyv::ser::serializers::AllocSerializer;
+use rkyv::validation::validators::DefaultValidator;
+use rkyv::{Archive, Deserialize, Serialize};
 
 use super::error::RfcError;
 
-// use super::{encoding::Encoding, Mode};
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[derive(Archive, Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[archive(check_bytes)]
 pub(crate) struct RfcFile<H> {
     pub header: H,
     pub data: Vec<u8>,
@@ -12,23 +13,22 @@ pub(crate) struct RfcFile<H> {
 
 impl<'a, H> RfcFile<H>
 where
-    H: Serialize + Deserialize<'a>,
+    H: Serialize<AllocSerializer<0>> + 'a,
+    <H as Archive>::Archived:
+        Deserialize<H, rkyv::Infallible> + rkyv::CheckBytes<DefaultValidator<'a>>,
 {
     pub fn encode(&'a self) -> Result<Vec<u8>, RfcError> {
-        bincode::serialize(&self).map_err(|err| {
-            RfcError::Serialize(format!(
-                "failed to serialize to bincode: {}",
-                err.to_string()
-            ))
-        })
+        rkyv::to_bytes(self)
+            .map(|v| v.to_vec())
+            .map_err(|err| RfcError::Deserialize(err.to_string()))
     }
 
     pub fn decode(bytes: &'a [u8]) -> Result<Self, RfcError> {
-        bincode::deserialize(bytes.as_ref()).map_err(|err| {
-            RfcError::Deserialize(format!(
-                "failed to serialize to bincode: {}",
-                err.to_string()
-            ))
-        })
+        let archived =
+            rkyv::check_archived_root::<RfcFile<H>>(bytes).expect("failed to get archived value");
+
+        archived
+            .deserialize(&mut rkyv::Infallible)
+            .map_err(|err| RfcError::Deserialize(err.to_string()))
     }
 }

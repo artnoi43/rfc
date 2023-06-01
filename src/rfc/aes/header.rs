@@ -1,10 +1,8 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+use rkyv::{Archive, Deserialize, Serialize};
+#[derive(Archive, Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[archive(check_bytes)]
 
 pub(crate) struct HeaderAes {
-    // pub mode: Mode,
-    // pub encoding: Encoding,
     pub padding: usize,
     pub salt: Option<Vec<u8>>,
 }
@@ -13,6 +11,24 @@ pub(crate) struct HeaderAes {
 mod tests {
     use super::*;
     use crate::rfc::file::RfcFile;
+
+    #[test]
+    fn test_rkyv_aes_header() {
+        let val = HeaderAes {
+            padding: 0,
+            salt: Some(vec![1, 1, 1, 1, 1, 1, 1]),
+        };
+
+        let bytes = rkyv::to_bytes::<HeaderAes, 16>(&val).unwrap();
+        let archived =
+            rkyv::check_archived_root::<HeaderAes>(&bytes[..]).expect("failed to archive");
+        let deserialized: HeaderAes = archived
+            .deserialize(&mut rkyv::Infallible)
+            .expect("failed to deserialize");
+
+        println!("bytes: {}", bytes.len());
+        assert_eq!(val, deserialized);
+    }
 
     fn new_file() -> RfcFile<HeaderAes> {
         let content = include_str!("./header.rs").as_bytes().to_vec();

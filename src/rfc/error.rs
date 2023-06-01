@@ -18,7 +18,7 @@ pub enum RfcError {
     Encryption,
 
     #[error("decryption error")]
-    Decryption,
+    Decryption(String),
 
     #[error("compression error")]
     Compression,

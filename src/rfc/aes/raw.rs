@@ -57,8 +57,6 @@ impl super::Cipher for CipherRawAes256 {
         let (mut blocks, padded) = aes_blocks(bytes);
         Aes256::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
 
-        println!("encrypt256 pad: {}", padded);
-
         Ok((aes_blocks_to_bytes(blocks), padded))
     }
 
@@ -68,7 +66,12 @@ impl super::Cipher for CipherRawAes256 {
         K: AsRef<[u8]>,
     {
         let (mut blocks, padded) = aes_blocks(bytes);
-        println!("decrypt256 pad: {}", padded);
+        if padded != 0 {
+            return Err(RfcError::Decryption(format!(
+                "input not full AES blocks: got {} trail",
+                padded
+            )));
+        }
 
         Aes256::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
