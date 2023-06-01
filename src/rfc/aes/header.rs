@@ -2,10 +2,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 
-pub(crate) struct AesHeader {
+pub(crate) struct HeaderAes {
     // pub mode: Mode,
     // pub encoding: Encoding,
-    pub padding: Option<usize>,
+    pub padding: usize,
     pub salt: Option<Vec<u8>>,
 }
 
@@ -14,15 +14,15 @@ mod tests {
     use super::*;
     use crate::rfc::file::RfcFile;
 
-    fn new_file() -> RfcFile<AesHeader> {
+    fn new_file() -> RfcFile<HeaderAes> {
         let content = include_str!("./header.rs").as_bytes().to_vec();
         let salt = "deadbeefbeefdead".as_bytes().to_vec();
         let padding = 16usize;
 
-        let header = AesHeader {
+        let header = HeaderAes {
             // mode: Mode::Aes256,
             // encoding: Encoding::Plain,
-            padding: Some(padding),
+            padding: padding,
             salt: Some(salt.clone()),
         };
 
@@ -46,15 +46,15 @@ mod tests {
         let f = new_file();
 
         let f_no_padding = RfcFile {
-            header: AesHeader {
-                padding: None,
+            header: HeaderAes {
+                padding: 0,
                 ..f.header.clone()
             },
             ..f.clone()
         };
 
         let f_no_salt = RfcFile {
-            header: AesHeader {
+            header: HeaderAes {
                 salt: None,
                 ..f.header.clone()
             },
@@ -62,8 +62,8 @@ mod tests {
         };
 
         let f_no_header = RfcFile {
-            header: AesHeader {
-                padding: None,
+            header: HeaderAes {
+                padding: 0,
                 salt: None,
                 ..f.header.clone()
             },
@@ -85,7 +85,7 @@ mod tests {
         print_size(&f_no_header, f_no_header_bytes);
     }
 
-    fn print_size(f: &RfcFile<AesHeader>, f_bytes: Vec<u8>) {
+    fn print_size(f: &RfcFile<HeaderAes>, f_bytes: Vec<u8>) {
         let data_len = f.data.len();
         let bytes_len = f_bytes.len();
         let header_size = bytes_len - data_len;

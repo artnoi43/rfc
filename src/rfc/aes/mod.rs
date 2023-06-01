@@ -1,110 +1,118 @@
 mod header;
+pub mod raw;
 
-use aes::cipher::{generic_array::GenericArray, typenum::U16};
-use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
-use aes::{Aes128, Aes256};
+use crate::rfc::file::RfcFile;
+use crate::rfc::{Cipher, RfcError};
+use header::HeaderAes;
+use raw::{CipherRawAes128, CipherRawAes256};
 
-use std::io::Write;
+use std::marker::PhantomData;
 
-use super::error::RfcError;
+/// RawCipherAes does not handle padding during decryption,
+/// so null bytes maybe in the decryption output.
+pub trait RawCipherAes: Cipher<Output = (Vec<u8>, usize)> {}
 
-type BlockAes = GenericArray<u8, U16>;
+impl RawCipherAes for CipherRawAes128 {}
+impl RawCipherAes for CipherRawAes256 {}
 
-pub struct CipherAes128 {}
-pub struct CipherAes256 {}
-
-impl super::Cipher for CipherAes128 {
-    fn encrypt<T>(bytes: T, key: T) -> Result<Vec<u8>, RfcError>
-    where
-        T: AsRef<[u8]>,
-    {
-        let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
-        Aes128::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
-
-        Ok(aes_blocks_to_bytes(blocks))
-    }
-
-    fn decrypt<T>(bytes: T, key: T) -> Result<Vec<u8>, RfcError>
-    where
-        T: AsRef<[u8]>,
-    {
-        let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
-        Aes128::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
-
-        Ok(aes_blocks_to_bytes(blocks))
-    }
-}
-
-impl super::Cipher for CipherAes256 {
-    fn encrypt<T>(bytes: T, key: T) -> Result<Vec<u8>, RfcError>
-    where
-        T: AsRef<[u8]>,
-    {
-        let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
-        Aes256::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
-
-        Ok(aes_blocks_to_bytes(blocks))
-    }
-
-    fn decrypt<T>(bytes: T, key: T) -> Result<Vec<u8>, RfcError>
-    where
-        T: AsRef<[u8]>,
-    {
-        let mut blocks: Vec<BlockAes> = aes_blocks(bytes);
-        Aes256::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
-
-        Ok(aes_blocks_to_bytes(blocks))
-    }
-}
-
-fn aes_blocks<T>(bytes: T) -> Vec<BlockAes>
+/// Wrapper for CipherAes128 and CipherAes256 for decoding/encoding Header from/to Vec<u8>.
+pub(crate) struct CipherAes<C>
 where
-    T: AsRef<[u8]>,
+    C: RawCipherAes,
 {
-    let (chunks, _padded) = super::buf::bytes_chunks::<16, T>(bytes);
-    let mut blocks: Vec<BlockAes> = Vec::with_capacity(chunks.len());
+    phantom: PhantomData<C>,
+}
 
-    for chunk in chunks {
-        blocks.push(GenericArray::from(chunk));
+impl Cipher for CipherAes<CipherRawAes128> {
+    type Output = Vec<u8>;
+
+    fn encrypt<T, K>(bytes: T, key: K) -> Result<Vec<u8>, RfcError>
+    where
+        T: AsRef<[u8]>,
+        K: AsRef<[u8]>,
+    {
+        encrypt::<CipherRawAes128, T, K>(bytes, key)
     }
 
-    blocks
+    fn decrypt<T, K>(bytes: T, key: K) -> Result<Vec<u8>, RfcError>
+    where
+        T: AsRef<[u8]>,
+        K: AsRef<[u8]>,
+    {
+        decrypt::<CipherRawAes128, T, K>(bytes, key)
+    }
 }
 
-fn aes_blocks_to_bytes(blocks: Vec<BlockAes>) -> Vec<u8> {
-    blocks
-        .into_iter()
-        .map(|block| block.as_slice().to_owned())
-        .flat_map(|slice| slice.into_iter().map(|byte| byte.to_owned()))
-        .collect::<Vec<_>>()
+impl Cipher for CipherAes<CipherRawAes256> {
+    type Output = Vec<u8>;
+
+    fn encrypt<T, K>(bytes: T, key: K) -> Result<Vec<u8>, RfcError>
+    where
+        T: AsRef<[u8]>,
+        K: AsRef<[u8]>,
+    {
+        encrypt::<CipherRawAes256, T, K>(bytes, key)
+    }
+
+    fn decrypt<T, K>(bytes: T, key: K) -> Result<Vec<u8>, RfcError>
+    where
+        T: AsRef<[u8]>,
+        K: AsRef<[u8]>,
+    {
+        decrypt::<CipherRawAes256, T, K>(bytes, key)
+    }
 }
 
-fn aes_key<const KEY_SIZE: usize, K>(key: K) -> [u8; KEY_SIZE]
+fn encrypt<C, T, K>(bytes: T, key: K) -> Result<Vec<u8>, RfcError>
 where
+    C: RawCipherAes,
+    T: AsRef<[u8]>,
     K: AsRef<[u8]>,
 {
-    let mut bytes = [0u8; KEY_SIZE];
-    let mut buf = &mut bytes[..];
+    let (ciphertext, padded) = C::encrypt(bytes, key)?;
 
-    buf.write_all(key.as_ref())
-        .expect(format!("failed to create AES-{} key", 32 * 8).as_str());
-
-    bytes
+    encode_encryption_output(ciphertext, padded)
 }
 
-#[test]
-fn test_aes_256() {
-    // TODO: Remove padded 0s in decryption
-    use super::Cipher;
-
-    let plaintext = include_str!("../../../Cargo.toml");
-    let key = "this_is_my_key";
-    let ciphertext = CipherAes256::encrypt(plaintext.clone(), &key).expect("encryption failed");
-    assert!(ciphertext.len() != 0);
-
-    let result = CipherAes256::decrypt(ciphertext, key.into()).expect("decryption failed");
-    assert_eq!(
-        plaintext,
-        String::from_utf8(result).expect("bytes not UTF-8")
+fn decrypt<C, T, K>(bytes: T, key: K) -> Result<Vec<u8>, RfcError>
+where
+    C: RawCipherAes,
+    T: AsRef<[u8]>,
+    K: AsRef<[u8]>,
+{
+    let f = RfcFile::<HeaderAes>::decode(bytes.as_ref())?;
+    let (mut plaintext, _) = C::decrypt(f.data, key)?;
+    println!(
+        "decrypt: plaintext: {}, padding: {}",
+        plaintext.len(),
+        f.header.padding
     );
+
+    plaintext.truncate(plaintext.len() - f.header.padding);
+
+    Ok(plaintext)
+}
+
+fn encode_encryption_output(ciphertext: Vec<u8>, padded: usize) -> Result<Vec<u8>, RfcError> {
+    let output: RfcFile<HeaderAes> = RfcFile {
+        header: HeaderAes {
+            padding: padded,
+            salt: None,
+        },
+        data: ciphertext,
+    };
+
+    output.encode()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CipherAes, CipherRawAes128, CipherRawAes256};
+    use crate::rfc::tests::test_encryption;
+
+    #[test]
+    fn test_wrapped_aes() {
+        test_encryption::<CipherAes<CipherRawAes256>>();
+        test_encryption::<CipherAes<CipherRawAes128>>();
+    }
 }

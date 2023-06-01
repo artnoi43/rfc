@@ -2,6 +2,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum RfcError {
+    #[error("not implemented")]
+    NotImplemented(String),
+
     #[error("io error")]
     IoError(std::io::Error),
 
