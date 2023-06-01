@@ -73,14 +73,16 @@ pub mod tests {
     use super::Cipher;
 
     pub fn test_encryption<C: Cipher<Output = Vec<u8>>>() {
-        // TODO: Remove padded 0s in decryption
-        let plaintext = "1111111111111111".as_bytes();
-        let key = "this_is_my_key".as_bytes();
-        let ciphertext = C::encrypt(plaintext.clone(), &key).expect("encryption failed");
-        assert!(ciphertext.len() != 0);
+        let tests = vec![include_str!("../../Cargo.toml"), "foo", "./mod.rs"];
+        tests.into_iter().for_each(|plaintext| {
+            let plaintext = plaintext.as_bytes();
+            let key = "this_is_my_key".as_bytes();
+            let ciphertext = C::encrypt(plaintext.clone(), &key).expect("encryption failed");
+            assert!(ciphertext.len() != 0);
 
-        let plaintext_result =
-            C::decrypt::<Vec<u8>, &[u8]>(ciphertext, key.into()).expect("decryption failed");
-        assert_eq!(plaintext, plaintext_result);
+            let plaintext_result =
+                C::decrypt::<Vec<u8>, &[u8]>(ciphertext, key.into()).expect("decryption failed");
+            assert_eq!(plaintext, plaintext_result);
+        });
     }
 }

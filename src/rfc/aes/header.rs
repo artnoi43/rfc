@@ -1,9 +1,17 @@
-use rkyv::{Archive, Deserialize, Serialize};
-#[derive(Archive, Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    PartialEq,
+    Debug,
+)]
 #[archive(check_bytes)]
 
 pub(crate) struct HeaderAes {
-    pub padding: usize,
+    pub extra: usize,
     pub salt: Option<Vec<u8>>,
 }
 
@@ -14,8 +22,10 @@ mod tests {
 
     #[test]
     fn test_rkyv_aes_header() {
+        use rkyv::Deserialize;
+
         let val = HeaderAes {
-            padding: 0,
+            extra: 0,
             salt: Some(vec![1, 1, 1, 1, 1, 1, 1]),
         };
 
@@ -33,12 +43,10 @@ mod tests {
     fn new_file() -> RfcFile<HeaderAes> {
         let content = include_str!("./header.rs").as_bytes().to_vec();
         let salt = "deadbeefbeefdead".as_bytes().to_vec();
-        let padding = 16usize;
+        let extra = 16usize;
 
         let header = HeaderAes {
-            // mode: Mode::Aes256,
-            // encoding: Encoding::Plain,
-            padding: padding,
+            extra,
             salt: Some(salt.clone()),
         };
 
@@ -63,7 +71,7 @@ mod tests {
 
         let f_no_padding = RfcFile {
             header: HeaderAes {
-                padding: 0,
+                extra: 0,
                 ..f.header.clone()
             },
             ..f.clone()
@@ -79,40 +87,53 @@ mod tests {
 
         let f_no_header = RfcFile {
             header: HeaderAes {
-                padding: 0,
+                extra: 0,
                 salt: None,
                 ..f.header.clone()
             },
             ..f.clone()
         };
 
-        let f_bytes = f.encode().expect("failed to encode");
-        let f_no_padding_bytes = f_no_padding.encode().expect("failed to encode");
-        let f_no_salt_bytes = f_no_salt.encode().expect("failed to encode");
-        let f_no_header_bytes = f_no_header.encode().expect("failed to encode");
-
-        println!("full header");
-        print_size(&f, f_bytes);
-        println!("no padding");
-        print_size(&f, f_no_padding_bytes);
-        println!("no salt");
-        print_size(&f, f_no_salt_bytes);
-        println!("no header");
-        print_size(&f_no_header, f_no_header_bytes);
+        print_file("full header", &f);
+        print_file("no padding", &f_no_padding);
+        print_file("no salt", &f_no_salt);
+        print_file("no header", &f_no_header);
     }
 
-    fn print_size(f: &RfcFile<HeaderAes>, f_bytes: Vec<u8>) {
+    fn print_file(filename: &str, file: &RfcFile<HeaderAes>) {
+        print_size(
+            format!("rkyv {}", filename),
+            file,
+            file.encode().expect("failed to encode rkyv"),
+        );
+
+        print_size(
+            format!("bincode {}", filename),
+            file,
+            file.to_bincode().expect("failed to encode rkyv"),
+        );
+
+        print_size(
+            format!("json {}", filename),
+            file,
+            file.to_json().expect("failed to encode rkyv"),
+        );
+    }
+
+    fn print_size(s: String, f: &RfcFile<HeaderAes>, f_bytes: Vec<u8>) {
+        println!("{}", s);
+
         let data_len = f.data.len();
         let bytes_len = f_bytes.len();
         let header_size = bytes_len - data_len;
 
         println!(
-            "size_of_data: {}\nmem_size_of_padding: {}\nmem_size_of_header: {}\nfile_bytes_length: {}\nheader_bytes: {}\n",
+            "size_of_data: {}\nmem_size_of_padding: {}\nmem_size_of_header: {}\nheader_bytes: {}\nfile_bytes_length: {}\n",
             f.data.len(),
             std::mem::size_of::<usize>(),
             std::mem::size_of_val(&f.header),
-            f_bytes.len(),
             header_size,
+            f_bytes.len(),
         );
     }
 }

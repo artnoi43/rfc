@@ -19,7 +19,6 @@ pub struct CipherRawAes128 {}
 pub struct CipherRawAes256 {}
 
 impl super::Cipher for CipherRawAes128 {
-    // The output is (bytes, padded)
     type Output = (Vec<u8>, usize);
 
     fn encrypt<T, K>(bytes: T, key: K) -> Result<Self::Output, RfcError>
@@ -27,10 +26,10 @@ impl super::Cipher for CipherRawAes128 {
         T: AsRef<[u8]>,
         K: AsRef<[u8]>,
     {
-        let (mut blocks, padded) = aes_blocks(bytes);
+        let (mut blocks, extra) = aes_blocks(bytes);
         Aes128::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
 
-        Ok((aes_blocks_to_bytes(blocks), padded))
+        Ok((aes_blocks_to_bytes(blocks), extra))
     }
 
     fn decrypt<T, K>(bytes: T, key: K) -> Result<Self::Output, RfcError>
@@ -38,15 +37,14 @@ impl super::Cipher for CipherRawAes128 {
         T: AsRef<[u8]>,
         K: AsRef<[u8]>,
     {
-        let (mut blocks, padded) = aes_blocks(bytes);
+        let (mut blocks, extra) = aes_blocks(bytes);
         Aes128::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
-        Ok((aes_blocks_to_bytes(blocks), padded))
+        Ok((aes_blocks_to_bytes(blocks), extra))
     }
 }
 
 impl super::Cipher for CipherRawAes256 {
-    // The output is (bytes, padded)
     type Output = (Vec<u8>, usize);
 
     fn encrypt<T, K>(bytes: T, key: K) -> Result<Self::Output, RfcError>
@@ -54,10 +52,10 @@ impl super::Cipher for CipherRawAes256 {
         T: AsRef<[u8]>,
         K: AsRef<[u8]>,
     {
-        let (mut blocks, padded) = aes_blocks(bytes);
+        let (mut blocks, extra) = aes_blocks(bytes);
         Aes256::new(&GenericArray::from(aes_key(key))).encrypt_blocks(&mut blocks);
 
-        Ok((aes_blocks_to_bytes(blocks), padded))
+        Ok((aes_blocks_to_bytes(blocks), extra))
     }
 
     fn decrypt<T, K>(bytes: T, key: K) -> Result<Self::Output, RfcError>
@@ -65,17 +63,17 @@ impl super::Cipher for CipherRawAes256 {
         T: AsRef<[u8]>,
         K: AsRef<[u8]>,
     {
-        let (mut blocks, padded) = aes_blocks(bytes);
-        if padded != 0 {
+        let (mut blocks, extra) = aes_blocks(bytes);
+        if extra != 0 {
             return Err(RfcError::Decryption(format!(
                 "input not full AES blocks: got {} trail",
-                padded
+                extra
             )));
         }
 
         Aes256::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
 
-        Ok((aes_blocks_to_bytes(blocks), padded))
+        Ok((aes_blocks_to_bytes(blocks), extra))
     }
 }
 
@@ -83,14 +81,14 @@ fn aes_blocks<T>(bytes: T) -> (Vec<BlockAes>, usize)
 where
     T: AsRef<[u8]>,
 {
-    let (chunks, padded) = rfc::buf::bytes_chunks::<16, T>(bytes);
+    let (chunks, extra) = rfc::buf::bytes_chunks::<16, T>(bytes);
     let mut blocks: Vec<BlockAes> = Vec::with_capacity(chunks.len());
 
     for chunk in chunks {
         blocks.push(GenericArray::from(chunk));
     }
 
-    (blocks, padded)
+    (blocks, extra)
 }
 
 fn aes_blocks_to_bytes(blocks: Vec<BlockAes>) -> Vec<u8> {

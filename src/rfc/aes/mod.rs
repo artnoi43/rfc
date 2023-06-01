@@ -69,9 +69,9 @@ where
     T: AsRef<[u8]>,
     K: AsRef<[u8]>,
 {
-    let (ciphertext, padded) = C::encrypt(bytes, key)?;
+    let (ciphertext, extra) = C::encrypt(bytes, key)?;
 
-    encode_encryption_output(ciphertext, padded)
+    encode_encryption_output(ciphertext, extra)
 }
 
 fn decrypt<C, T, K>(bytes: T, key: K) -> Result<Vec<u8>, RfcError>
@@ -81,24 +81,22 @@ where
     K: AsRef<[u8]>,
 {
     let f = RfcFile::<HeaderAes>::decode(bytes.as_ref())?;
-    let (mut plaintext, _) = C::decrypt(f.data, key)?;
-    println!(
-        "decrypt: plaintext: {}, padding: {}",
-        plaintext.len(),
-        f.header.padding
-    );
+    let (mut plaintext, extra) = C::decrypt(f.data, key)?;
+    if extra != 0 {
+        return Err(RfcError::Decryption(format!(
+            "ciphertext not full AES blocks: got {} trail",
+            extra
+        )));
+    }
 
-    plaintext.truncate(plaintext.len() - f.header.padding);
+    plaintext.truncate(plaintext.len() - 16 + f.header.extra);
 
     Ok(plaintext)
 }
 
-fn encode_encryption_output(ciphertext: Vec<u8>, padded: usize) -> Result<Vec<u8>, RfcError> {
+fn encode_encryption_output(ciphertext: Vec<u8>, extra: usize) -> Result<Vec<u8>, RfcError> {
     let output: RfcFile<HeaderAes> = RfcFile {
-        header: HeaderAes {
-            padding: padded,
-            salt: None,
-        },
+        header: HeaderAes { extra, salt: None },
         data: ciphertext,
     };
 
