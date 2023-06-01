@@ -1,3 +1,5 @@
+mod header;
+
 use aes::cipher::{generic_array::GenericArray, typenum::U16};
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::{Aes128, Aes256};
@@ -95,7 +97,7 @@ fn test_aes_256() {
     // TODO: Remove padded 0s in decryption
     use super::Cipher;
 
-    let plaintext = include_str!("../../Cargo.toml");
+    let plaintext = include_str!("../../../Cargo.toml");
     let key = "this_is_my_key";
     let ciphertext = CipherAes256::encrypt(plaintext.clone(), &key).expect("encryption failed");
     assert!(ciphertext.len() != 0);
