@@ -15,7 +15,7 @@ pub(crate) struct HeaderAes(pub usize);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rfc::file::RfcFile;
+    use crate::rfc::file::WrapperBytes;
 
     #[test]
     fn test_rkyv_aes_header() {
@@ -34,13 +34,13 @@ mod tests {
         assert_eq!(val, deserialized);
     }
 
-    fn new_file() -> RfcFile<HeaderAes> {
+    fn new_file() -> WrapperBytes<HeaderAes> {
         let content = include_str!("./header.rs").as_bytes().to_vec();
         let extra = 16usize;
 
         let header = HeaderAes(extra);
 
-        return RfcFile(header, content);
+        return WrapperBytes(header, content);
     }
 
     #[test]
@@ -48,22 +48,22 @@ mod tests {
         let f = new_file();
 
         let bytes = f.encode().expect("failed to encode");
-        let decoded = RfcFile::decode(&bytes[..]).expect("failed to deserialize");
+        let decoded = WrapperBytes::decode(&bytes[..]).expect("failed to deserialize");
         assert_eq!(f, decoded);
     }
 
     #[test]
     fn cmp_sizes() {
         let f = new_file();
-        let f_no_padding = RfcFile(HeaderAes(0), f.1.clone());
-        let f_no_salt = RfcFile(HeaderAes(0), f.1.clone());
+        let f_no_padding = WrapperBytes(HeaderAes(0), f.1.clone());
+        let f_no_salt = WrapperBytes(HeaderAes(0), f.1.clone());
 
         print_file("full header", &f);
         print_file("no padding", &f_no_padding);
         print_file("no salt", &f_no_salt);
     }
 
-    fn print_file(filename: &str, file: &RfcFile<HeaderAes>) {
+    fn print_file(filename: &str, file: &WrapperBytes<HeaderAes>) {
         print_size(
             format!("rkyv {}", filename),
             file,
@@ -83,7 +83,7 @@ mod tests {
         );
     }
 
-    fn print_size(s: String, f: &RfcFile<HeaderAes>, f_bytes: Vec<u8>) {
+    fn print_size(s: String, f: &WrapperBytes<HeaderAes>, f_bytes: Vec<u8>) {
         println!("{}", s);
 
         let (header, data) = (&f.0, &f.1);

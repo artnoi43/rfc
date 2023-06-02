@@ -14,7 +14,7 @@ use std::io::Write;
 
 use crate::rfc::buf::bytes_chunks;
 use crate::rfc::error::RfcError;
-use crate::rfc::file::RfcFile;
+use crate::rfc::file::WrapperBytes;
 use crate::rfc::Cipher;
 use header::HeaderAes;
 
@@ -47,7 +47,7 @@ impl Cipher for CipherAes128 {
         T: AsRef<[u8]>,
         K: AsRef<[u8]>,
     {
-        let infile = RfcFile::<HeaderAes>::decode(bytes.as_ref())?;
+        let infile = WrapperBytes::<HeaderAes>::decode(bytes.as_ref())?;
         let (header, ciphertext) = (infile.0, infile.1);
 
         let (mut blocks, ciphertext_extra) = aes_blocks(ciphertext);
@@ -83,7 +83,7 @@ impl Cipher for CipherAes256 {
         T: AsRef<[u8]>,
         K: AsRef<[u8]>,
     {
-        let infile = RfcFile::<HeaderAes>::decode(bytes.as_ref())?;
+        let infile = WrapperBytes::<HeaderAes>::decode(bytes.as_ref())?;
         let (header, ciphertext) = (infile.0, infile.1);
 
         let (mut blocks, ciphertext_extra) = aes_blocks(ciphertext);
@@ -144,7 +144,7 @@ fn truncate_padding(mut plaintext: Vec<u8>, extra: usize) -> Vec<u8> {
 }
 
 fn encode_encryption_output(ciphertext: Vec<u8>, extra: usize) -> Result<Vec<u8>, RfcError> {
-    let output: RfcFile<HeaderAes> = RfcFile::<HeaderAes>(HeaderAes(extra), ciphertext);
+    let output: WrapperBytes<HeaderAes> = WrapperBytes::<HeaderAes>(HeaderAes(extra), ciphertext);
 
     output.encode()
 }

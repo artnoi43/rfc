@@ -15,7 +15,7 @@ pub enum RfcError {
     Deserialize(String),
 
     #[error("encryption error")]
-    Encryption,
+    Encryption(String),
 
     #[error("decryption error")]
     Decryption(String),

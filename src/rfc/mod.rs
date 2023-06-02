@@ -2,6 +2,8 @@ pub mod aes;
 pub mod buf;
 pub mod encoding;
 pub mod error;
+pub mod pbkdf2;
+
 mod file;
 
 use self::aes::{CipherAes128, CipherAes256};

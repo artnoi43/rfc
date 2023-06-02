@@ -3,10 +3,11 @@ use rkyv::validation::validators::DefaultValidator;
 
 use super::error::RfcError;
 
-/// RfcFile is for some ciphers that need to store metadata
-/// in addition to ciphertext. Ciphers that need the metadata
-/// have to implement their own header H and return only the
-/// bytes back to rfc module.
+/// WrapperBytes wraps some byte vectors with `H` in a tuple.
+/// This allows us to store metadata in addition to the ciphertext,
+/// like salt. This also allows ciphers to wrap their own metadata
+/// before passing serializing their ciphertext plus metadata back
+/// as `Vec<u8>` to rfc.
 #[derive(
     rkyv::Archive,
     rkyv::Serialize,
@@ -18,9 +19,9 @@ use super::error::RfcError;
     Debug,
 )]
 #[archive(check_bytes)]
-pub(crate) struct RfcFile<H>(pub H, pub Vec<u8>);
+pub(crate) struct WrapperBytes<H>(pub H, pub Vec<u8>);
 
-impl<'a, H> RfcFile<H>
+impl<'a, H> WrapperBytes<H>
 where
     H: rkyv::Serialize<AllocSerializer<0>> + 'a,
     <H as rkyv::Archive>::Archived:
@@ -35,8 +36,8 @@ where
     pub fn decode(bytes: &'a [u8]) -> Result<Self, RfcError> {
         use rkyv::Deserialize;
 
-        let archived =
-            rkyv::check_archived_root::<RfcFile<H>>(bytes).expect("failed to get archived value");
+        let archived = rkyv::check_archived_root::<WrapperBytes<H>>(bytes)
+            .expect("failed to get archived value");
 
         archived
             .deserialize(&mut rkyv::Infallible)
@@ -44,7 +45,7 @@ where
     }
 }
 
-impl<'a, H> RfcFile<H>
+impl<'a, H> WrapperBytes<H>
 where
     H: serde::Serialize + serde::Deserialize<'a>,
 {
