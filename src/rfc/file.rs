@@ -18,10 +18,7 @@ use super::error::RfcError;
     Debug,
 )]
 #[archive(check_bytes)]
-pub(crate) struct RfcFile<H> {
-    pub header: H,
-    pub data: Vec<u8>,
-}
+pub(crate) struct RfcFile<H>(pub H, pub Vec<u8>);
 
 impl<'a, H> RfcFile<H>
 where

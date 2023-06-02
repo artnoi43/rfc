@@ -50,10 +50,7 @@ mod tests {
             salt: Some(salt.clone()),
         };
 
-        return RfcFile {
-            header,
-            data: content,
-        };
+        return RfcFile(header, content);
     }
 
     #[test]
@@ -68,36 +65,24 @@ mod tests {
     #[test]
     fn cmp_sizes() {
         let f = new_file();
-
-        let f_no_padding = RfcFile {
-            header: HeaderAes {
+        let f_no_padding = RfcFile(
+            HeaderAes {
                 extra: 0,
-                ..f.header.clone()
+                ..f.0.clone()
             },
-            ..f.clone()
-        };
-
-        let f_no_salt = RfcFile {
-            header: HeaderAes {
+            f.1.clone(),
+        );
+        let f_no_salt = RfcFile(
+            HeaderAes {
                 salt: None,
-                ..f.header.clone()
+                ..f.0.clone()
             },
-            ..f.clone()
-        };
-
-        let f_no_header = RfcFile {
-            header: HeaderAes {
-                extra: 0,
-                salt: None,
-                ..f.header.clone()
-            },
-            ..f.clone()
-        };
+            f.1.clone(),
+        );
 
         print_file("full header", &f);
         print_file("no padding", &f_no_padding);
         print_file("no salt", &f_no_salt);
-        print_file("no header", &f_no_header);
     }
 
     fn print_file(filename: &str, file: &RfcFile<HeaderAes>) {
@@ -123,15 +108,17 @@ mod tests {
     fn print_size(s: String, f: &RfcFile<HeaderAes>, f_bytes: Vec<u8>) {
         println!("{}", s);
 
-        let data_len = f.data.len();
+        let (header, data) = (&f.0, &f.1);
+
+        let data_len = data.len();
         let bytes_len = f_bytes.len();
         let header_size = bytes_len - data_len;
 
         println!(
             "size_of_data: {}\nmem_size_of_padding: {}\nmem_size_of_header: {}\nheader_bytes: {}\nfile_bytes_length: {}\n",
-            f.data.len(),
+            data.len(),
             std::mem::size_of::<usize>(),
-            std::mem::size_of_val(&f.header),
+            std::mem::size_of_val(&header),
             header_size,
             f_bytes.len(),
         );

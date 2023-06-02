@@ -81,7 +81,9 @@ where
     K: AsRef<[u8]>,
 {
     let f = RfcFile::<HeaderAes>::decode(bytes.as_ref())?;
-    let (mut plaintext, extra) = C::decrypt(f.data, key)?;
+    let (header, ciphertext) = (f.0, f.1);
+
+    let (mut plaintext, extra) = C::decrypt(ciphertext, key)?;
     if extra != 0 {
         return Err(RfcError::Decryption(format!(
             "ciphertext not full AES blocks: got {} trail",
@@ -89,16 +91,14 @@ where
         )));
     }
 
-    plaintext.truncate(plaintext.len() - 16 + f.header.extra);
+    plaintext.truncate(plaintext.len() - 16 + header.extra);
 
     Ok(plaintext)
 }
 
 fn encode_encryption_output(ciphertext: Vec<u8>, extra: usize) -> Result<Vec<u8>, RfcError> {
-    let output: RfcFile<HeaderAes> = RfcFile {
-        header: HeaderAes { extra, salt: None },
-        data: ciphertext,
-    };
+    let output: RfcFile<HeaderAes> =
+        RfcFile::<HeaderAes>(HeaderAes { extra, salt: None }, ciphertext);
 
     output.encode()
 }
