@@ -14,7 +14,7 @@ use std::io::Write;
 
 use crate::rfc::buf::bytes_chunks;
 use crate::rfc::error::RfcError;
-use crate::rfc::file::WrapperBytes;
+use crate::rfc::wrapper::WrapperBytes;
 use crate::rfc::Cipher;
 use header::HeaderAes;
 

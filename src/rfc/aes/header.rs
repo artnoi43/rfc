@@ -15,7 +15,7 @@ pub(crate) struct HeaderAes(pub usize);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rfc::file::WrapperBytes;
+    use crate::rfc::wrapper::WrapperBytes;
 
     #[test]
     fn test_rkyv_aes_header() {

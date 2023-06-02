@@ -4,7 +4,7 @@ pub mod encoding;
 pub mod error;
 pub mod pbkdf2;
 
-mod file;
+mod wrapper;
 
 use self::aes::{CipherAes128, CipherAes256};
 use error::RfcError;
