@@ -4,10 +4,7 @@ pub mod encoding;
 pub mod error;
 mod file;
 
-use self::aes::{
-    raw::{CipherRawAes128, CipherRawAes256},
-    CipherAes,
-};
+use self::aes::{CipherAes128, CipherAes256};
 use error::RfcError;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -17,9 +14,7 @@ pub enum Mode {
 }
 
 pub trait Cipher {
-    type Output;
-
-    fn crypt<T, U>(bytes: T, key: U, decrypt: bool) -> Result<Self::Output, RfcError>
+    fn crypt<T, U>(bytes: T, key: U, decrypt: bool) -> Result<Vec<u8>, RfcError>
     where
         T: AsRef<[u8]>,
         U: AsRef<[u8]>,
@@ -31,12 +26,12 @@ pub trait Cipher {
         Self::encrypt(bytes, key)
     }
 
-    fn encrypt<T, U>(bytes: T, key: U) -> Result<Self::Output, RfcError>
+    fn encrypt<T, U>(bytes: T, key: U) -> Result<Vec<u8>, RfcError>
     where
         T: AsRef<[u8]>,
         U: AsRef<[u8]>;
 
-    fn decrypt<T, U>(bytes: T, key: U) -> Result<Self::Output, RfcError>
+    fn decrypt<T, U>(bytes: T, key: U) -> Result<Vec<u8>, RfcError>
     where
         T: AsRef<[u8]>,
         U: AsRef<[u8]>;
@@ -55,8 +50,8 @@ where
     T: AsRef<[u8]>,
 {
     match cipher {
-        Mode::Aes128 => CipherAes::<CipherRawAes128>::crypt(bytes, key, decrypt),
-        Mode::Aes256 => CipherAes::<CipherRawAes256>::crypt(bytes, key, decrypt),
+        Mode::Aes128 => CipherAes128::crypt(bytes, key, decrypt),
+        Mode::Aes256 => CipherAes256::crypt(bytes, key, decrypt),
     }
 }
 
@@ -72,8 +67,14 @@ pub fn post_process(
 pub mod tests {
     use super::Cipher;
 
-    pub fn test_encryption<C: Cipher<Output = Vec<u8>>>() {
-        let tests = vec![include_str!("../../Cargo.toml"), "foo", "./mod.rs"];
+    pub fn test_encryption<C: Cipher>() {
+        let tests = vec![
+            include_str!("../../Cargo.toml"),
+            include_str!("./mod.rs"),
+            "foo",
+            "",
+        ];
+
         tests.into_iter().for_each(|plaintext| {
             let plaintext = plaintext.as_bytes();
             let key = "this_is_my_key".as_bytes();

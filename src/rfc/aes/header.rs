@@ -10,10 +10,7 @@
 )]
 #[archive(check_bytes)]
 
-pub(crate) struct HeaderAes {
-    pub extra: usize,
-    pub salt: Option<Vec<u8>>,
-}
+pub(crate) struct HeaderAes(pub usize);
 
 #[cfg(test)]
 mod tests {
@@ -24,10 +21,7 @@ mod tests {
     fn test_rkyv_aes_header() {
         use rkyv::Deserialize;
 
-        let val = HeaderAes {
-            extra: 0,
-            salt: Some(vec![1, 1, 1, 1, 1, 1, 1]),
-        };
+        let val = HeaderAes(0);
 
         let bytes = rkyv::to_bytes::<HeaderAes, 16>(&val).unwrap();
         let archived =
@@ -42,13 +36,9 @@ mod tests {
 
     fn new_file() -> RfcFile<HeaderAes> {
         let content = include_str!("./header.rs").as_bytes().to_vec();
-        let salt = "deadbeefbeefdead".as_bytes().to_vec();
         let extra = 16usize;
 
-        let header = HeaderAes {
-            extra,
-            salt: Some(salt.clone()),
-        };
+        let header = HeaderAes(extra);
 
         return RfcFile(header, content);
     }
@@ -65,20 +55,8 @@ mod tests {
     #[test]
     fn cmp_sizes() {
         let f = new_file();
-        let f_no_padding = RfcFile(
-            HeaderAes {
-                extra: 0,
-                ..f.0.clone()
-            },
-            f.1.clone(),
-        );
-        let f_no_salt = RfcFile(
-            HeaderAes {
-                salt: None,
-                ..f.0.clone()
-            },
-            f.1.clone(),
-        );
+        let f_no_padding = RfcFile(HeaderAes(0), f.1.clone());
+        let f_no_salt = RfcFile(HeaderAes(0), f.1.clone());
 
         print_file("full header", &f);
         print_file("no padding", &f_no_padding);
