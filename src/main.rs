@@ -13,10 +13,24 @@ fn main() -> Result<(), RfcError> {
     // Prepare key
     let key = get_key(args.key_type, args.key_file)?;
     // Read bytes from infile
-    let bytes = read_file(&args.filename)?;
+    let infile = open_file(args.filename, false)?;
+    let infile_len = Some(
+        infile
+            .metadata()
+            .map_err(|err| RfcError::IoError(err))?
+            .len() as usize,
+    );
 
     // Pre-processes file bytes, e.g. decompress or decode
-    let bytes = rfc::pre_process(args.decrypt, bytes, args.encoding, args.compress)?;
+    let bytes = rfc::pre_process(
+        args.decrypt,
+        infile,
+        infile_len,
+        args.encoding,
+        args.compress,
+    )
+    .expect("pre_process failed");
+
     // Performs encryption or decryption
     let bytes = rfc::crypt(args.decrypt, bytes, key, args.cipher.rfc_mode())?;
     // Post-processes output bytes, e.g. compress or encode
@@ -26,7 +40,8 @@ fn main() -> Result<(), RfcError> {
         args.encoding,
         args.compress,
         open_file(args.outfile, true)?,
-    )?;
+    )
+    .expect("post_process failed");
 
     Ok(())
 }

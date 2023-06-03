@@ -7,7 +7,7 @@ use super::error::RfcError;
 /// truncating any buffer extra capacity before returning the buffer.
 pub fn compress_to_bytes<R>(
     level: i32,
-    mut from: R,
+    from: R,
     prealloc: Option<usize>,
 ) -> Result<Vec<u8>, RfcError>
 where
@@ -50,6 +50,7 @@ where
 {
     let mut encoder =
         zstd::stream::Encoder::new(to, level).map_err(|err| RfcError::IoError(err))?;
+
     io::copy(&mut from, &mut encoder).map_err(|err| RfcError::IoError(err))?;
     encoder.finish().map_err(|err| RfcError::IoError(err))?;
 

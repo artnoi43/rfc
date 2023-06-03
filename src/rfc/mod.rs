@@ -8,7 +8,7 @@ pub mod zstd;
 mod cipher;
 mod wrapper;
 
-use std::io::Write;
+use std::io::{Read, Write};
 
 pub use cipher::Cipher;
 
@@ -18,19 +18,39 @@ use self::wrapper::WrapperBytes;
 use error::RfcError;
 
 /// Pre-processes input bytes
-pub fn pre_process(
+pub fn pre_process<R>(
     decrypt: bool,
-    bytes: Vec<u8>,
+    mut input: R,
+    input_len: Option<usize>,
     codec: encoding::Encoding,
     zstd_level: zstd::Level,
-) -> Result<Vec<u8>, RfcError> {
+) -> Result<Vec<u8>, RfcError>
+where
+    R: Read,
+{
     let zstd_level = zstd_level.0;
-
     match decrypt {
         true => {
             let bytes = match codec {
-                encoding::Encoding::Plain => bytes,
-                _ => bytes, // TODO: Decode decryption input
+                encoding::Encoding::Plain => {
+                    let mut buf: Vec<u8> = Vec::with_capacity(input_len.unwrap_or(0));
+                    input
+                        .read_to_end(&mut buf)
+                        .map_err(|err| RfcError::IoError(err))?;
+
+                    buf.truncate(buf.len());
+                    buf
+                }
+                _ => {
+                    // TODO: Decode decryption input
+                    let mut buf: Vec<u8> = Vec::with_capacity(input_len.unwrap_or(0));
+                    input
+                        .read_to_end(&mut buf)
+                        .map_err(|err| RfcError::IoError(err))?;
+
+                    buf.truncate(buf.len());
+                    buf
+                }
             };
 
             Ok(bytes)
@@ -39,8 +59,17 @@ pub fn pre_process(
         // If encrypt, then compress before encrypt
         false => {
             let bytes = match zstd_level {
-                None => bytes,
-                Some(level) => bytes, // TODO: Compress encryption input
+                None => {
+                    let mut buf: Vec<u8> = Vec::with_capacity(input_len.unwrap_or(0));
+                    input
+                        .read_to_end(&mut buf)
+                        .map_err(|err| RfcError::IoError(err))?;
+
+                    buf.truncate(buf.len());
+                    buf
+                }
+
+                Some(level) => zstd::compress_to_bytes(level, input, input_len)?,
             };
 
             Ok(bytes)
@@ -97,7 +126,7 @@ pub fn post_process_and_write_out<W: Write>(
     let bytes = match decrypt {
         true => match zstd_level {
             None => bytes,
-            Some(_level) => bytes, // TODO: Decrypt decryption output
+            Some(_) => zstd::decompress_to_bytes(&mut bytes.as_slice(), Some(bytes.len()))?,
         },
 
         false => match codec {
