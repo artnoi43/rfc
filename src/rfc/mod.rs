@@ -8,6 +8,7 @@ mod wrapper;
 
 use self::aes::{CipherAes128, CipherAes256};
 use self::pbkdf2::{generate_salt, pbkdf2_key};
+use self::wrapper::WrapperBytes;
 use error::RfcError;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -54,9 +55,6 @@ pub fn crypt(
     key: Vec<u8>,
     cipher: Mode,
 ) -> Result<Vec<u8>, RfcError> {
-    let salt = generate_salt()?;
-    let key = pbkdf2_key::<32, _, _>(key, &salt)?;
-
     match cipher {
         Mode::Aes128 => CipherAes128::crypt(bytes, key, decrypt),
         Mode::Aes256 => CipherAes256::crypt(bytes, key, decrypt),
