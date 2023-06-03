@@ -43,6 +43,7 @@ pub trait Cipher {
         U: AsRef<[u8]>;
 }
 
+/// Pre-processes input bytes
 pub fn pre_process(
     decrypt: bool,
     bytes: Vec<u8>,
@@ -51,12 +52,14 @@ pub fn pre_process(
     Ok(bytes)
 }
 
+/// Derives new key from `key` using PBKDF2 and use the new key to encrypt/decrypt bytes.
 pub fn crypt(
     decrypt: bool,
     bytes: Vec<u8>,
     key: Vec<u8>,
     cipher: Mode,
 ) -> Result<Vec<u8>, RfcError> {
+    // Extract encoded salt if decrypt, otherwise generate new salt
     let (salt, bytes) = match decrypt {
         false => (generate_salt()?, bytes),
         true => {
@@ -78,12 +81,14 @@ pub fn crypt(
         ),
     }?;
 
+    // Encode salt to output bytes if encrypt, otherwise just return plaintext bytes.
     match decrypt {
         false => WrapperBytes::<Vec<u8>>(salt.into(), result).encode(),
         true => Ok(result),
     }
 }
 
+/// Post-processes output bytes.
 pub fn post_process(
     decrypt: bool,
     bytes: Vec<u8>,
