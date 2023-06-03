@@ -30,6 +30,8 @@ pub struct CipherAes128 {}
 pub struct CipherAes256 {}
 
 impl Cipher for CipherAes128 {
+    const KEY_SIZE: usize = 16;
+
     fn encrypt<T, K>(bytes: T, key: K) -> Result<Vec<u8>, RfcError>
     where
         T: AsRef<[u8]>,
@@ -67,6 +69,8 @@ impl Cipher for CipherAes128 {
 }
 
 impl Cipher for CipherAes256 {
+    const KEY_SIZE: usize = 32;
+
     fn encrypt<T, K>(bytes: T, key: K) -> Result<Vec<u8>, RfcError>
     where
         T: AsRef<[u8]>,
@@ -154,11 +158,11 @@ fn encode_encryption_output(ciphertext: Vec<u8>, extra: usize) -> Result<Vec<u8>
 #[cfg(test)]
 pub mod tests {
     use super::{CipherAes128, CipherAes256};
-    use crate::rfc::tests::test_encryption;
+    use crate::rfc::tests::test_cipher;
 
     #[test]
     fn test_wrapped_aes() {
-        test_encryption::<CipherAes256>();
-        test_encryption::<CipherAes128>();
+        test_cipher::<CipherAes256>();
+        test_cipher::<CipherAes128>();
     }
 }

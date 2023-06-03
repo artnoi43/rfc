@@ -11,13 +11,15 @@ use self::pbkdf2::{generate_salt, pbkdf2_key};
 use self::wrapper::WrapperBytes;
 use error::RfcError;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Mode {
     Aes128,
     Aes256,
 }
 
 pub trait Cipher {
+    const KEY_SIZE: usize;
+
     fn crypt<T, U>(bytes: T, key: U, decrypt: bool) -> Result<Vec<u8>, RfcError>
     where
         T: AsRef<[u8]>,
@@ -55,9 +57,30 @@ pub fn crypt(
     key: Vec<u8>,
     cipher: Mode,
 ) -> Result<Vec<u8>, RfcError> {
-    match cipher {
-        Mode::Aes128 => CipherAes128::crypt(bytes, key, decrypt),
-        Mode::Aes256 => CipherAes256::crypt(bytes, key, decrypt),
+    let (salt, bytes) = match decrypt {
+        false => (generate_salt()?, bytes),
+        true => {
+            let wrapped_bytes = WrapperBytes::<Vec<u8>>::decode_archived(&bytes)?;
+            (wrapped_bytes.0.to_vec(), wrapped_bytes.1.to_vec())
+        }
+    };
+
+    let result = match cipher {
+        Mode::Aes128 => CipherAes128::crypt(
+            bytes,
+            pbkdf2_key::<{ CipherAes128::KEY_SIZE }, _, _>(key, &salt)?,
+            decrypt,
+        ),
+        Mode::Aes256 => CipherAes256::crypt(
+            bytes,
+            pbkdf2_key::<{ CipherAes256::KEY_SIZE }, _, _>(key, &salt)?,
+            decrypt,
+        ),
+    }?;
+
+    match decrypt {
+        false => WrapperBytes::<Vec<u8>>(salt.into(), result).encode(),
+        true => Ok(result),
     }
 }
 
@@ -71,17 +94,42 @@ pub fn post_process(
 
 #[cfg(test)]
 pub mod tests {
-    use super::Cipher;
+    use super::{Cipher, Mode};
 
-    pub fn test_encryption<C: Cipher>() {
-        let tests = vec![
+    #[test]
+    fn test_crypt() {
+        test_rfc_crypt(Mode::Aes128);
+        test_rfc_crypt(Mode::Aes256);
+    }
+
+    pub fn test_cases() -> Vec<&'static str> {
+        vec![
             include_str!("../../Cargo.toml"),
             include_str!("./mod.rs"),
             "foo",
             "",
-        ];
+        ]
+    }
 
-        tests.into_iter().for_each(|plaintext| {
+    pub fn test_rfc_crypt(cipher: Mode) {
+        use super::crypt;
+
+        test_cases().into_iter().for_each(|plaintext| {
+            let plaintext = plaintext.as_bytes();
+            let key = b"this_is_my_key";
+
+            let ciphertext = crypt(plaintext.to_vec(), false, key.clone().to_vec(), cipher)
+                .expect("failed to encrypt");
+
+            let decrypt_result =
+                crypt(ciphertext, true, key.to_vec(), cipher).expect("failed to decrypt");
+
+            assert_eq!(plaintext, decrypt_result);
+        })
+    }
+
+    pub fn test_cipher<C: Cipher>() {
+        test_cases().into_iter().for_each(|plaintext| {
             let plaintext = plaintext.as_bytes();
             let key = "this_is_my_key".as_bytes();
             let ciphertext = C::encrypt(plaintext.clone(), &key).expect("encryption failed");
