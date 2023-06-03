@@ -3,6 +3,7 @@ pub mod buf;
 pub mod encoding;
 pub mod error;
 pub mod pbkdf2;
+pub mod zstd;
 
 mod wrapper;
 
