@@ -16,7 +16,7 @@ fn main() -> Result<(), RfcError> {
     let bytes = read_file(&args.filename)?;
 
     // Pre-processes file bytes, e.g. decompress or decode
-    let bytes = rfc::pre_process(args.decrypt, bytes, args.encoding)?;
+    let bytes = rfc::pre_process(args.decrypt, bytes, args.encoding, args.compress)?;
     // Performs encryption or decryption
     let bytes = rfc::crypt(args.decrypt, bytes, key, args.cipher.rfc_mode())?;
     // Post-processes output bytes, e.g. compress or encode
@@ -25,7 +25,7 @@ fn main() -> Result<(), RfcError> {
         bytes,
         args.encoding,
         args.compress,
-        open_file(args.outfile)?,
+        open_file(args.outfile, true)?,
     )?;
 
     Ok(())
@@ -38,13 +38,13 @@ where
     std::fs::read(filename).map_err(|err| RfcError::IoError(err))
 }
 
-fn open_file<P>(filename: P) -> Result<std::fs::File, RfcError>
+fn open_file<P>(filename: P, w: bool) -> Result<std::fs::File, RfcError>
 where
     P: AsRef<std::path::Path>,
 {
     std::fs::OpenOptions::new()
         .create_new(true)
-        .write(true)
+        .write(w)
         .open(filename)
         .map_err(|err| RfcError::IoError(err))
 }

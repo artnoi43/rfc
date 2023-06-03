@@ -45,8 +45,30 @@ pub fn pre_process(
     decrypt: bool,
     bytes: Vec<u8>,
     codec: encoding::Encoding,
+    zstd_level: zstd::Level,
 ) -> Result<Vec<u8>, RfcError> {
-    Ok(bytes)
+    let zstd_level = zstd_level.0;
+
+    match decrypt {
+        true => {
+            let bytes = match codec {
+                encoding::Encoding::Plain => bytes,
+                _ => bytes, // TODO: Decode decryption input
+            };
+
+            Ok(bytes)
+        }
+
+        // If encrypt, then compress before encrypt
+        false => {
+            let bytes = match zstd_level {
+                None => bytes,
+                Some(_level) => bytes, // TODO: Compress encryption input
+            };
+
+            Ok(bytes)
+        }
+    }
 }
 
 /// Derives new key from `key` using PBKDF2 and use the new key to encrypt/decrypt bytes.
@@ -93,6 +115,20 @@ pub fn post_process_and_write_out<W: Write>(
     zstd_level: zstd::Level,
     mut output: W,
 ) -> Result<usize, RfcError> {
+    let zstd_level = zstd_level.0;
+
+    let bytes = match decrypt {
+        true => match zstd_level {
+            None => bytes,
+            Some(_level) => bytes, // TODO: Decrypt decryption output
+        },
+
+        false => match codec {
+            encoding::Encoding::Plain => bytes,
+            _ => bytes, // TODO: Encode encryption output
+        },
+    };
+
     output.write(&bytes).map_err(|err| RfcError::IoError(err))
 }
 
