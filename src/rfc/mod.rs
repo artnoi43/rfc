@@ -5,40 +5,17 @@ pub mod error;
 pub mod pbkdf2;
 pub mod zstd;
 
+mod cipher;
 mod wrapper;
 
 use std::io::Write;
+
+pub use cipher::Cipher;
 
 use self::aes::{CipherAes128, CipherAes256};
 use self::pbkdf2::{generate_salt, pbkdf2_key};
 use self::wrapper::WrapperBytes;
 use error::RfcError;
-
-pub trait Cipher {
-    const KEY_SIZE: usize;
-
-    fn crypt<T, U>(bytes: T, key: U, decrypt: bool) -> Result<Vec<u8>, RfcError>
-    where
-        T: AsRef<[u8]>,
-        U: AsRef<[u8]>,
-    {
-        if decrypt {
-            return Self::decrypt(bytes, key);
-        }
-
-        Self::encrypt(bytes, key)
-    }
-
-    fn encrypt<T, U>(bytes: T, key: U) -> Result<Vec<u8>, RfcError>
-    where
-        T: AsRef<[u8]>,
-        U: AsRef<[u8]>;
-
-    fn decrypt<T, U>(bytes: T, key: U) -> Result<Vec<u8>, RfcError>
-    where
-        T: AsRef<[u8]>,
-        U: AsRef<[u8]>;
-}
 
 /// Pre-processes input bytes
 pub fn pre_process(
@@ -63,7 +40,7 @@ pub fn pre_process(
         false => {
             let bytes = match zstd_level {
                 None => bytes,
-                Some(_level) => bytes, // TODO: Compress encryption input
+                Some(level) => bytes, // TODO: Compress encryption input
             };
 
             Ok(bytes)
