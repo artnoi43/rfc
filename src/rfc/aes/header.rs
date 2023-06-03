@@ -14,6 +14,8 @@ pub(crate) struct HeaderAes(pub usize);
 
 #[cfg(test)]
 mod tests {
+    use rkyv::Deserialize;
+
     use super::*;
     use crate::rfc::wrapper::WrapperBytes;
 
@@ -48,8 +50,13 @@ mod tests {
         let f = new_file();
 
         let bytes = f.encode().expect("failed to encode");
-        let decoded = WrapperBytes::decode(&bytes[..]).expect("failed to deserialize");
-        assert_eq!(f, decoded);
+        let decoded = WrapperBytes::decode_archived(&bytes[..]).expect("failed to deserialize");
+        assert_eq!(
+            f,
+            decoded
+                .deserialize(&mut rkyv::Infallible)
+                .expect("failed to deserialize")
+        );
     }
 
     #[test]

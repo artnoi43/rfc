@@ -47,8 +47,8 @@ impl Cipher for CipherAes128 {
         T: AsRef<[u8]>,
         K: AsRef<[u8]>,
     {
-        let infile = WrapperBytes::<HeaderAes>::decode(bytes.as_ref())?;
-        let (header, ciphertext) = (infile.0, infile.1);
+        let infile = WrapperBytes::<HeaderAes>::decode_archived(bytes.as_ref())?;
+        let ciphertext = infile.1.to_owned();
 
         let (mut blocks, ciphertext_extra) = aes_blocks(ciphertext);
         if ciphertext_extra != 0 {
@@ -61,7 +61,8 @@ impl Cipher for CipherAes128 {
         Aes128::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
         let plaintext = aes_blocks_to_bytes(blocks);
 
-        Ok(truncate_padding(plaintext, header.0))
+        let extra = (&infile.0).0 as usize;
+        Ok(truncate_padding(plaintext, extra))
     }
 }
 
@@ -83,8 +84,8 @@ impl Cipher for CipherAes256 {
         T: AsRef<[u8]>,
         K: AsRef<[u8]>,
     {
-        let infile = WrapperBytes::<HeaderAes>::decode(bytes.as_ref())?;
-        let (header, ciphertext) = (infile.0, infile.1);
+        let infile = WrapperBytes::<HeaderAes>::decode_archived(bytes.as_ref())?;
+        let ciphertext = infile.1.to_owned();
 
         let (mut blocks, ciphertext_extra) = aes_blocks(ciphertext);
         if ciphertext_extra != 0 {
@@ -97,7 +98,8 @@ impl Cipher for CipherAes256 {
         Aes256::new(&GenericArray::from(aes_key(key))).decrypt_blocks(&mut blocks);
         let plaintext = aes_blocks_to_bytes(blocks);
 
-        Ok(truncate_padding(plaintext, header.0))
+        let extra = (&infile.0).0 as usize;
+        Ok(truncate_padding(plaintext, extra))
     }
 }
 

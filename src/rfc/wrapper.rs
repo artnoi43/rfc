@@ -3,7 +3,7 @@ use rkyv::validation::validators::DefaultValidator;
 
 use super::error::RfcError;
 
-/// WrapperBytes wraps some byte vectors with `H` in a tuple.
+/// WrapperBytes wraps a byte vector with `H` in a tuple.
 /// This allows us to store metadata in addition to the ciphertext,
 /// like salt. This also allows ciphers to wrap their own metadata
 /// before passing serializing their ciphertext plus metadata back
@@ -21,30 +21,37 @@ use super::error::RfcError;
 #[archive(check_bytes)]
 pub(crate) struct WrapperBytes<H>(pub H, pub Vec<u8>);
 
+/// Methods using `rkyv`.
 impl<'a, H> WrapperBytes<H>
 where
     H: rkyv::Serialize<AllocSerializer<0>> + 'a,
     <H as rkyv::Archive>::Archived:
         rkyv::Deserialize<H, rkyv::Infallible> + rkyv::CheckBytes<DefaultValidator<'a>>,
 {
+    /// Encodes to bytes using `rkyv`.
     pub fn encode(&'a self) -> Result<Vec<u8>, RfcError> {
         rkyv::to_bytes(self)
             .map(|v| v.to_vec())
             .map_err(|err| RfcError::Deserialize(err.to_string()))
     }
 
+    /// Returns the archived form of Self from the given slice of bytes, with zero-copy.
+    pub fn decode_archived(bytes: &'a [u8]) -> Result<&ArchivedWrapperBytes<H>, RfcError> {
+        rkyv::check_archived_root::<Self>(bytes)
+            .map_err(|err| RfcError::Deserialize(format!("failed to get archived form: {}", err)))
+    }
+
+    /// Returns a new Self parsed from the archived form.
     pub fn decode(bytes: &'a [u8]) -> Result<Self, RfcError> {
         use rkyv::Deserialize;
 
-        let archived = rkyv::check_archived_root::<WrapperBytes<H>>(bytes)
-            .expect("failed to get archived value");
-
-        archived
+        Self::decode_archived(bytes)?
             .deserialize(&mut rkyv::Infallible)
             .map_err(|err| RfcError::Deserialize(err.to_string()))
     }
 }
 
+/// Methods using `serde` traits.
 impl<'a, H> WrapperBytes<H>
 where
     H: serde::Serialize + serde::Deserialize<'a>,
