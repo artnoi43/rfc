@@ -15,11 +15,11 @@ fn main() -> Result<(), RfcError> {
     // Prepare key
     let key = get_key(args.key_type, args.key_file).expect("failed to get encryption key");
     // Read bytes from infile
-    let mut bytes = read_file(&args.filename).expect("failed to read infile");
+    let bytes = read_file(&args.filename).expect("failed to read infile");
 
-    bytes = rfc::pre_process(bytes, args.decrypt, args.encoding)?;
-    bytes = rfc::crypt(bytes, args.decrypt, key, rfc::Mode::Aes256)?;
-    bytes = rfc::post_process(bytes, args.decrypt, args.encoding)?;
+    let bytes = rfc::pre_process(args.decrypt, bytes, args.encoding)?;
+    let bytes = rfc::crypt(args.decrypt, bytes, key, rfc::Mode::Aes256)?;
+    let bytes = rfc::post_process(args.decrypt, bytes, args.encoding)?;
 
     if let Err(err) = write_out(args.outfile, &bytes) {
         eprintln!("failed to write output to stdout: {}", err);

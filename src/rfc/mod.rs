@@ -44,16 +44,16 @@ pub trait Cipher {
 }
 
 pub fn pre_process(
-    bytes: Vec<u8>,
     decrypt: bool,
+    bytes: Vec<u8>,
     codec: encoding::Encoding,
 ) -> Result<Vec<u8>, RfcError> {
     Ok(bytes)
 }
 
 pub fn crypt(
-    bytes: Vec<u8>,
     decrypt: bool,
+    bytes: Vec<u8>,
     key: Vec<u8>,
     cipher: Mode,
 ) -> Result<Vec<u8>, RfcError> {
@@ -85,8 +85,8 @@ pub fn crypt(
 }
 
 pub fn post_process(
-    bytes: Vec<u8>,
     decrypt: bool,
+    bytes: Vec<u8>,
     codec: encoding::Encoding,
 ) -> Result<Vec<u8>, RfcError> {
     Ok(bytes)
@@ -118,11 +118,11 @@ pub mod tests {
             let plaintext = plaintext.as_bytes();
             let key = b"this_is_my_key";
 
-            let ciphertext = crypt(plaintext.to_vec(), false, key.clone().to_vec(), cipher)
+            let ciphertext = crypt(false, plaintext.to_vec(), key.clone().to_vec(), cipher)
                 .expect("failed to encrypt");
 
             let decrypt_result =
-                crypt(ciphertext, true, key.to_vec(), cipher).expect("failed to decrypt");
+                crypt(true, ciphertext, key.to_vec(), cipher).expect("failed to decrypt");
 
             assert_eq!(plaintext, decrypt_result);
         })
