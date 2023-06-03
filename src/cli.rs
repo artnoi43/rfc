@@ -1,6 +1,6 @@
 use clap::{Parser, ValueEnum};
 
-use crate::rfc::encoding;
+use crate::rfc::{encoding::Encoding, zstd::Level as ZstdLevel, Mode};
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -33,13 +33,13 @@ pub struct Args {
     /// Encryprion key file
     pub key_file: Option<Filename>,
 
-    #[arg(short = 'z', long, value_parser = validate_zstd_arg, default_value_t = ZstdArg(None))]
+    #[arg(short = 'z', long, value_parser = validate_zstd_arg, default_value_t = ZstdLevel(None))]
     /// ZSTD compression level
-    pub compress: ZstdArg,
+    pub compress: ZstdLevel,
 
-    #[arg(short, long, default_value_t = encoding::Encoding::Plain)]
+    #[arg(short, long, default_value_t = Encoding::Plain)]
     /// Encoding to decode input
-    pub encoding: encoding::Encoding,
+    pub encoding: Encoding,
 }
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -52,6 +52,14 @@ impl std::fmt::Display for Cipher {
         match self {
             Self::Aes128 => write!(f, "aes128"),
             Self::Aes256 => write!(f, "aes256"),
+        }
+    }
+}
+impl Cipher {
+    pub fn rfc_mode(&self) -> Mode {
+        match self {
+            Self::Aes128 => Mode::Aes128,
+            Self::Aes256 => Mode::Aes256,
         }
     }
 }
@@ -85,20 +93,9 @@ fn test_validate_filename() {
     assert!(validate_filename("foo").is_ok());
 }
 
-#[derive(Clone, Debug)]
-pub struct ZstdArg(Option<i32>);
-impl std::fmt::Display for ZstdArg {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.0 {
-            Some(level) => write!(f, "{}", level.to_string()),
-            None => write!(f, ""),
-        }
-    }
-}
-
-fn validate_zstd_arg(level: &str) -> Result<ZstdArg, String> {
+fn validate_zstd_arg(level: &str) -> Result<ZstdLevel, String> {
     if level.is_empty() {
-        return Ok(ZstdArg(None));
+        return Ok(ZstdLevel(None));
     }
 
     let level: i32 = level
@@ -110,24 +107,24 @@ fn validate_zstd_arg(level: &str) -> Result<ZstdArg, String> {
     }
 
     if level == 0 {
-        return Ok(ZstdArg(None));
+        return Ok(ZstdLevel(None));
     }
 
     if level > 22 {
         return Err(format!("level is greater than 22: {}", level));
     }
 
-    Ok(ZstdArg(Some(level)))
+    Ok(ZstdLevel(Some(level)))
 }
 
 #[test]
 fn test_validate_zstd_arg() {
     vec![
-        ("", Result::<ZstdArg, String>::Ok(ZstdArg(None))),
-        ("0", Ok(ZstdArg(None))),
-        ("3", Ok(ZstdArg(Some(3)))),
-        ("+3", Ok(ZstdArg(Some(3)))),
-        ("21", Ok(ZstdArg(Some(21)))),
+        ("", Result::<ZstdLevel, String>::Ok(ZstdLevel(None))),
+        ("0", Ok(ZstdLevel(None))),
+        ("3", Ok(ZstdLevel(Some(3)))),
+        ("+3", Ok(ZstdLevel(Some(3)))),
+        ("21", Ok(ZstdLevel(Some(21)))),
         ("foo", Err(String::new())),
         ("-3", Err(String::new())),
         ("32", Err(String::new())),
@@ -142,8 +139,8 @@ fn test_validate_zstd_arg() {
             return;
         }
 
-        let expected: ZstdArg = test.1.unwrap();
-        let actual: ZstdArg = result.unwrap();
+        let expected: ZstdLevel = test.1.unwrap();
+        let actual: ZstdLevel = result.unwrap();
         assert_eq!(actual.0, expected.0);
     })
 }

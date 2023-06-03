@@ -9,57 +9,59 @@ use rpassword::read_password;
 use rfc::error::RfcError;
 
 fn main() -> Result<(), RfcError> {
-    // Parse CLI arguments and read infile
     let args = cli::Args::parse();
-
     // Prepare key
-    let key = get_key(args.key_type, args.key_file).expect("failed to get encryption key");
+    let key = get_key(args.key_type, args.key_file)?;
     // Read bytes from infile
-    let bytes = read_file(&args.filename).expect("failed to read infile");
+    let bytes = read_file(&args.filename)?;
 
+    // Pre-processes file bytes, e.g. decompress or decode
     let bytes = rfc::pre_process(args.decrypt, bytes, args.encoding)?;
-    let bytes = rfc::crypt(args.decrypt, bytes, key, rfc::Mode::Aes256)?;
-    let bytes = rfc::post_process(args.decrypt, bytes, args.encoding)?;
-
-    if let Err(err) = write_out(args.outfile, &bytes) {
-        eprintln!("failed to write output to stdout: {}", err);
-    }
+    // Performs encryption or decryption
+    let bytes = rfc::crypt(args.decrypt, bytes, key, args.cipher.rfc_mode())?;
+    // Post-processes output bytes, e.g. compress or encode
+    rfc::post_process_and_write_out(
+        args.decrypt,
+        bytes,
+        args.encoding,
+        args.compress,
+        open_file(args.outfile)?,
+    )?;
 
     Ok(())
 }
 
-fn read_file<P>(filename: P) -> std::io::Result<Vec<u8>>
+fn read_file<P>(filename: P) -> Result<Vec<u8>, RfcError>
 where
     P: AsRef<std::path::Path>,
 {
-    std::fs::read(filename)
+    std::fs::read(filename).map_err(|err| RfcError::IoError(err))
 }
 
-fn get_passphrase<'a>() -> std::io::Result<Vec<u8>> {
-    println!("Enter your passphrase (will not echo):");
-    let passphrase = read_password()?;
+fn open_file<P>(filename: P) -> Result<std::fs::File, RfcError>
+where
+    P: AsRef<std::path::Path>,
+{
+    std::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(filename)
+        .map_err(|err| RfcError::IoError(err))
+}
 
-    Ok(passphrase.as_bytes().to_owned())
+fn get_passphrase<'a>() -> Result<Vec<u8>, RfcError> {
+    println!("Enter your passphrase (will not echo):");
+    let passphrase = read_password().map_err(|err| RfcError::IoError(err))?;
+
+    Ok(passphrase.as_bytes().to_vec())
 }
 
 fn get_key<P>(key_type: cli::KeyType, key_file: Option<P>) -> Result<Vec<u8>, RfcError>
 where
     P: AsRef<std::path::Path>,
 {
-    let key = match key_type {
-        cli::KeyType::Passphrase => get_passphrase().expect("failed to read passphrase"),
-        cli::KeyType::KeyFile => {
-            read_file(key_file.expect("no keyfile specified")).expect("failed to read key file")
-        }
-    };
-
-    Ok(key)
-}
-
-fn write_out<P, T>(outfile: P, data: T) -> std::io::Result<()>
-where
-    P: AsRef<std::path::Path>,
-    T: AsRef<[u8]>,
-{
-    std::fs::write(outfile, data.as_ref())
+    match key_type {
+        cli::KeyType::Passphrase => get_passphrase(),
+        cli::KeyType::KeyFile => read_file(key_file.expect("missing key filename")),
+    }
 }

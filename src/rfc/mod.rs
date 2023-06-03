@@ -7,16 +7,12 @@ pub mod zstd;
 
 mod wrapper;
 
+use std::io::Write;
+
 use self::aes::{CipherAes128, CipherAes256};
 use self::pbkdf2::{generate_salt, pbkdf2_key};
 use self::wrapper::WrapperBytes;
 use error::RfcError;
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum Mode {
-    Aes128,
-    Aes256,
-}
 
 pub trait Cipher {
     const KEY_SIZE: usize;
@@ -90,12 +86,28 @@ pub fn crypt(
 }
 
 /// Post-processes output bytes.
-pub fn post_process(
+pub fn post_process_and_write_out<W: Write>(
     decrypt: bool,
     bytes: Vec<u8>,
     codec: encoding::Encoding,
-) -> Result<Vec<u8>, RfcError> {
-    Ok(bytes)
+    zstd_level: zstd::Level,
+    mut output: W,
+) -> Result<usize, RfcError> {
+    output.write(&bytes).map_err(|err| RfcError::IoError(err))
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Mode {
+    Aes128,
+    Aes256,
+}
+impl std::fmt::Display for Mode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Aes128 => write!(f, "aes128"),
+            Self::Aes256 => write!(f, "aes256"),
+        }
+    }
 }
 
 #[cfg(test)]
