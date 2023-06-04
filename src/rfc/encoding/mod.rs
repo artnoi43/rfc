@@ -1,9 +1,10 @@
+mod b64;
+
 use clap;
-// use serde::{Deserialize, Serialize};
 
-// #[derive(Copy, Clone, Debug, PartialEq, clap::ValueEnum, Serialize, Deserialize)]
+pub use b64::*;
+
 #[derive(Copy, Clone, Debug, PartialEq, clap::ValueEnum)]
-
 pub enum Encoding {
     Plain,
     Hex,
