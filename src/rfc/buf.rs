@@ -21,16 +21,14 @@ where
         chunks.push(*chunk)
     }
 
-    let to_pad = remainder.len();
-
-    if to_pad != 0 {
+    if !remainder.is_empty() {
         let mut chunk = [0u8; BLOCK_SIZE];
         fill(&mut chunk, remainder);
 
         chunks.push(chunk);
     }
 
-    (chunks, to_pad)
+    (chunks, remainder.len())
 }
 
 // Fills buf with bytes
