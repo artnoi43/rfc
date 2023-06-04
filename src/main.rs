@@ -12,8 +12,10 @@ fn main() -> Result<(), RfcError> {
     let args = cli::Args::parse();
     // Prepare key
     let key = get_key(args.key_type, args.key_file)?;
+
     // Read bytes from infile
-    let infile = open_file(args.filename, false)?;
+    let infile = open_file(args.filename, true)?;
+
     let infile_len = Some(
         infile
             .metadata()
@@ -33,6 +35,7 @@ fn main() -> Result<(), RfcError> {
 
     // Performs encryption or decryption
     let bytes = rfc::crypt(args.decrypt, bytes, key, args.cipher.rfc_mode())?;
+
     // Post-processes output bytes, e.g. compress or encode
     rfc::post_process_and_write_out(
         args.decrypt,
@@ -53,15 +56,26 @@ where
     std::fs::read(filename).map_err(|err| RfcError::IoError(err))
 }
 
-fn open_file<P>(filename: P, w: bool) -> Result<std::fs::File, RfcError>
+fn open_file<P>(filename: P, write: bool) -> Result<std::fs::File, RfcError>
 where
     P: AsRef<std::path::Path>,
 {
     std::fs::OpenOptions::new()
-        .create_new(true)
-        .write(w)
+        .create(write)
+        .write(write)
+        .read(true)
         .open(filename)
         .map_err(|err| RfcError::IoError(err))
+}
+
+#[test]
+fn test_open_file() {
+    vec!["./Cargo.toml", "./Cargo.lock"]
+        .into_iter()
+        .for_each(|filename| {
+            assert!(open_file(filename, true).is_ok());
+            assert!(open_file(filename, false).is_ok());
+        })
 }
 
 fn get_passphrase<'a>() -> Result<Vec<u8>, RfcError> {
