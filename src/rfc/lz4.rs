@@ -9,7 +9,7 @@ use super::error::RfcError;
 /// truncating any buffer extra capacity before returning the buffer.
 pub fn compress_to_bytes<R>(from: R, prealloc: Option<usize>) -> Result<Vec<u8>, RfcError>
 where
-    R: Read + Write,
+    R: Read,
 {
     let mut buf = Vec::with_capacity(prealloc.unwrap_or(0));
     compress(from, &mut buf)?;
@@ -37,8 +37,8 @@ where
 /// Reads bytes from Reader `from` and compresses using level. Output is written to Writer `to`.
 fn compress<R, W>(mut from: R, to: W) -> Result<(), RfcError>
 where
-    R: Read + Write,
-    W: Write + Write,
+    R: Read,
+    W: Write,
 {
     let mut encoder = lz4_flex::frame::FrameEncoder::new(to);
 
@@ -54,7 +54,7 @@ where
 fn decompress<R, W>(r: R, mut w: W) -> Result<(), RfcError>
 where
     R: Read,
-    W: Write + Write,
+    W: Write,
 {
     let mut decoder = lz4_flex::frame::FrameDecoder::new(r);
     io::copy(&mut decoder, &mut w).map_err(|err| RfcError::IoError(err))?;

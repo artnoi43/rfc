@@ -26,7 +26,7 @@ pub fn pre_process<R>(
     compress: bool,
 ) -> Result<Vec<u8>, RfcError>
 where
-    R: Read + Write,
+    R: Read,
 {
     match decrypt {
         true => buf::from_reader(input, input_len), // TODO: Decode decryption input
@@ -82,7 +82,7 @@ pub fn post_process_and_write_out<W: Write>(
     bytes: Vec<u8>,
     codec: encoding::Encoding,
     compress: bool,
-    mut output: W,
+    output: &mut W,
 ) -> Result<usize, RfcError> {
     let bytes = match decrypt {
         true => match compress {
@@ -115,7 +115,7 @@ impl std::fmt::Display for Mode {
 
 #[cfg(test)]
 pub mod tests {
-    use super::{Cipher, Mode};
+    use super::{pre_process, Cipher, Mode};
 
     #[test]
     fn test_crypt() {

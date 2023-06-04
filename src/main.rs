@@ -42,7 +42,7 @@ fn main() -> Result<(), RfcError> {
         bytes,
         args.encoding,
         args.compress,
-        open_file(args.outfile, true)?,
+        &mut open_file(args.outfile, true)?,
     )
     .expect("post_process failed");
 
