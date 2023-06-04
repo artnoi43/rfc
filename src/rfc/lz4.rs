@@ -1,4 +1,4 @@
-use zstd; // Cargo workspace unification changes rfc code behavior.
+use lz4_flex;
 
 use std::io::{self, Read, Write};
 
@@ -7,20 +7,13 @@ use super::error::RfcError;
 /// Pre-allocates a buffer with capacity `prealloc` if any,
 /// and compresses data from `from` into the buffer,
 /// truncating any buffer extra capacity before returning the buffer.
-pub fn compress_to_bytes<R>(
-    level: i32,
-    from: R,
-    prealloc: Option<usize>,
-) -> Result<Vec<u8>, RfcError>
+pub fn compress_to_bytes<R>(from: R, prealloc: Option<usize>) -> Result<Vec<u8>, RfcError>
 where
-    R: Read,
+    R: Read + Write,
 {
-    let mut buf = match prealloc {
-        None => Vec::<u8>::new(),
-        Some(cap) => Vec::<u8>::with_capacity(cap),
-    };
+    let mut buf = Vec::with_capacity(prealloc.unwrap_or(0));
+    compress(from, &mut buf)?;
 
-    compress(level, from, &mut buf)?;
     buf.truncate(buf.len());
 
     Ok(buf)
@@ -33,28 +26,26 @@ pub fn decompress_to_bytes<R>(mut from: R, prealloc: Option<usize>) -> Result<Ve
 where
     R: Read,
 {
-    let mut buf = match prealloc {
-        None => Vec::<u8>::new(),
-        Some(cap) => Vec::<u8>::with_capacity(cap),
-    };
-
+    let mut buf = Vec::with_capacity(prealloc.unwrap_or(0));
     decompress(&mut from, &mut buf)?;
+
     buf.truncate(buf.len());
 
     Ok(buf)
 }
 
 /// Reads bytes from Reader `from` and compresses using level. Output is written to Writer `to`.
-fn compress<R, W>(level: i32, mut from: R, to: W) -> Result<(), RfcError>
+fn compress<R, W>(mut from: R, to: W) -> Result<(), RfcError>
 where
-    R: Read,
-    W: Write,
+    R: Read + Write,
+    W: Write + Write,
 {
-    let mut encoder =
-        zstd::stream::Encoder::new(to, level).map_err(|err| RfcError::IoError(err))?;
+    let mut encoder = lz4_flex::frame::FrameEncoder::new(to);
 
-    io::copy(&mut from, &mut encoder).map_err(|err| RfcError::IoError(err))?;
-    encoder.finish().map_err(|err| RfcError::IoError(err))?;
+    io::copy(&mut from, &mut encoder).map_err(|err| RfcError::IoError(err.into()))?;
+    encoder
+        .finish()
+        .map_err(|err| RfcError::IoError(err.into()))?;
 
     Ok(())
 }
@@ -63,9 +54,9 @@ where
 fn decompress<R, W>(r: R, mut w: W) -> Result<(), RfcError>
 where
     R: Read,
-    W: Write,
+    W: Write + Write,
 {
-    let mut decoder = zstd::Decoder::new(r).map_err(|err| RfcError::IoError(err))?;
+    let mut decoder = lz4_flex::frame::FrameDecoder::new(r);
     io::copy(&mut decoder, &mut w).map_err(|err| RfcError::IoError(err))?;
 
     Ok(())
@@ -77,7 +68,7 @@ fn test_compress_bytes() {
 
     let infile = std::fs::File::open(filename).expect("failed to open infile");
 
-    let compressed = compress_to_bytes(12, infile, None).expect("failed to compress");
+    let compressed = compress_to_bytes(infile, None).expect("failed to compress");
     let decompressed = decompress_to_bytes(&mut compressed.as_slice(), Some(compressed.len()))
         .expect("failed to decompress");
 
@@ -93,12 +84,12 @@ fn testinfilepress() {
     let file = std::fs::File::open(filename).expect("failed to open file");
 
     let mut cmp = Vec::<u8>::new();
-    if let Err(err) = compress(12, file, &mut cmp) {
+    if let Err(err) = compress(file, &mut cmp) {
         panic!("got compression error: {:?}", err);
     };
 
     let mut decmp = Vec::<u8>::new();
-    if let Err(err) = decompress(&cmp[..], &mut decmp) {
+    if let Err(err) = decompress(&mut cmp.as_slice(), &mut decmp) {
         panic!("got decompression error: {:?}", err);
     }
 
@@ -123,7 +114,7 @@ fn test_compress_file() {
         .open(tmp_filename)
         .expect("failed to create tmp file");
 
-    if let Err(err) = compress(12, infile, &tmp_file) {
+    if let Err(err) = compress(infile, &tmp_file) {
         std::fs::remove_file(tmp_filename).expect("failed to remove tmp_file");
         panic!("failed to compress to tmp_file: {:?}", err);
     }

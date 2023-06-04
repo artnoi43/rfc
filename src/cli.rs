@@ -1,6 +1,6 @@
 use clap::{Parser, ValueEnum};
 
-use crate::rfc::{encoding::Encoding, zstd::Level as ZstdLevel, Mode};
+use crate::rfc::{encoding::Encoding, Mode};
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -33,9 +33,9 @@ pub struct Args {
     /// Encryprion key file
     pub key_file: Option<Filename>,
 
-    #[arg(short = 'z', long, value_parser = validate_zstd_arg, default_value_t = ZstdLevel(None))]
-    /// ZSTD compression level
-    pub compress: ZstdLevel,
+    #[arg(short = 'z', long, default_value_t = false)]
+    /// Compress using LZ4
+    pub compress: bool,
 
     #[arg(short, long, default_value_t = Encoding::Plain)]
     /// Encoding to decode input
@@ -91,56 +91,4 @@ fn validate_filename(name: &str) -> Result<Filename, String> {
 fn test_validate_filename() {
     assert!(validate_filename("").is_err());
     assert!(validate_filename("foo").is_ok());
-}
-
-fn validate_zstd_arg(level: &str) -> Result<ZstdLevel, String> {
-    if level.is_empty() {
-        return Ok(ZstdLevel(None));
-    }
-
-    let level: i32 = level
-        .parse()
-        .map_err(|_| format!("failed to parse string {} to i32", level))?;
-
-    if level < 0 {
-        return Err(format!("level is negative: {}", level));
-    }
-
-    if level == 0 {
-        return Ok(ZstdLevel(None));
-    }
-
-    if level > 22 {
-        return Err(format!("level is greater than 22: {}", level));
-    }
-
-    Ok(ZstdLevel(Some(level)))
-}
-
-#[test]
-fn test_validate_zstd_arg() {
-    vec![
-        ("", Result::<ZstdLevel, String>::Ok(ZstdLevel(None))),
-        ("0", Ok(ZstdLevel(None))),
-        ("3", Ok(ZstdLevel(Some(3)))),
-        ("+3", Ok(ZstdLevel(Some(3)))),
-        ("21", Ok(ZstdLevel(Some(21)))),
-        ("foo", Err(String::new())),
-        ("-3", Err(String::new())),
-        ("32", Err(String::new())),
-        ("-32", Err(String::new())),
-    ]
-    .into_iter()
-    .for_each(|test| {
-        let result = validate_zstd_arg(test.0);
-
-        if test.1.is_err() {
-            assert!(result.is_err());
-            return;
-        }
-
-        let expected: ZstdLevel = test.1.unwrap();
-        let actual: ZstdLevel = result.unwrap();
-        assert_eq!(actual.0, expected.0);
-    })
 }

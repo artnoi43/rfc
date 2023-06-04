@@ -1,5 +1,11 @@
-use std::io::Write;
+use std::io::{Read, Write};
 
+use super::error::RfcError;
+
+/// Returns a new array of generic size `BLOCK_SIZE`, as well as the remainder that did not
+/// fit into a full chunk of `BLOCK_SIZE`.
+///
+/// The last remainder block is padded with 0s if not full.
 pub fn bytes_chunks<const BLOCK_SIZE: usize, T>(bytes: T) -> (Vec<[u8; BLOCK_SIZE]>, usize)
 where
     T: AsRef<[u8]>,
@@ -29,6 +35,20 @@ where
     }
 
     (chunks, remainder.len())
+}
+
+/// Reads all bytes from `reader` into a new byte vector.
+pub fn from_reader<R>(mut reader: R, prealloc: Option<usize>) -> Result<Vec<u8>, RfcError>
+where
+    R: Read,
+{
+    let mut buf = Vec::with_capacity(prealloc.unwrap_or(0));
+    reader
+        .read_to_end(&mut buf)
+        .map_err(|err| RfcError::IoError(err))?;
+
+    buf.truncate(buf.len());
+    Ok(buf)
 }
 
 // Fills buf with bytes

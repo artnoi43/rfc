@@ -1,10 +1,10 @@
 pub mod aes;
-pub mod buf;
 pub mod encoding;
 pub mod error;
+pub mod lz4;
 pub mod pbkdf2;
-pub mod zstd;
 
+mod buf;
 mod cipher;
 mod wrapper;
 
@@ -20,59 +20,22 @@ use error::RfcError;
 /// Pre-processes input bytes
 pub fn pre_process<R>(
     decrypt: bool,
-    mut input: R,
+    input: R,
     input_len: Option<usize>,
     codec: encoding::Encoding,
-    zstd_level: zstd::Level,
+    compress: bool,
 ) -> Result<Vec<u8>, RfcError>
 where
-    R: Read,
+    R: Read + Write,
 {
-    let zstd_level = zstd_level.0;
     match decrypt {
-        true => {
-            let bytes = match codec {
-                encoding::Encoding::Plain => {
-                    let mut buf: Vec<u8> = Vec::with_capacity(input_len.unwrap_or(0));
-                    input
-                        .read_to_end(&mut buf)
-                        .map_err(|err| RfcError::IoError(err))?;
-
-                    buf.truncate(buf.len());
-                    buf
-                }
-                _ => {
-                    // TODO: Decode decryption input
-                    let mut buf: Vec<u8> = Vec::with_capacity(input_len.unwrap_or(0));
-                    input
-                        .read_to_end(&mut buf)
-                        .map_err(|err| RfcError::IoError(err))?;
-
-                    buf.truncate(buf.len());
-                    buf
-                }
-            };
-
-            Ok(bytes)
-        }
-
-        // If encrypt, then compress before encrypt
+        true => buf::from_reader(input, input_len), // TODO: Decode decryption input
         false => {
-            let bytes = match zstd_level {
-                None => {
-                    let mut buf: Vec<u8> = Vec::with_capacity(input_len.unwrap_or(0));
-                    input
-                        .read_to_end(&mut buf)
-                        .map_err(|err| RfcError::IoError(err))?;
-
-                    buf.truncate(buf.len());
-                    buf
-                }
-
-                Some(level) => zstd::compress_to_bytes(level, input, input_len)?,
-            };
-
-            Ok(bytes)
+            if compress {
+                lz4::compress_to_bytes(input, input_len)
+            } else {
+                buf::from_reader(input, input_len)
+            }
         }
     }
 }
@@ -118,15 +81,13 @@ pub fn post_process_and_write_out<W: Write>(
     decrypt: bool,
     bytes: Vec<u8>,
     codec: encoding::Encoding,
-    zstd_level: zstd::Level,
+    compress: bool,
     mut output: W,
 ) -> Result<usize, RfcError> {
-    let zstd_level = zstd_level.0;
-
     let bytes = match decrypt {
-        true => match zstd_level {
-            None => bytes,
-            Some(_) => zstd::decompress_to_bytes(&mut bytes.as_slice(), Some(bytes.len()))?,
+        true => match compress {
+            false => bytes,
+            true => lz4::decompress_to_bytes(&mut bytes.as_slice(), Some(bytes.len()))?,
         },
 
         false => match codec {
