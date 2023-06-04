@@ -1,3 +1,5 @@
+use zstd; // Cargo workspace unification changes rfc code behavior.
+
 use std::io::{self, Read, Write};
 
 use super::error::RfcError;
