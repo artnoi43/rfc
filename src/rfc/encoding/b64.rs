@@ -1,4 +1,4 @@
-use base64::{self, engine::general_purpose::STANDARD as b64_engine, Engine as _};
+use base64::{self, engine::general_purpose::STANDARD as b64_engine};
 
 use std::io::{Read, Write};
 
