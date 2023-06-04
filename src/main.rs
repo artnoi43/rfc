@@ -34,7 +34,8 @@ fn main() -> Result<(), RfcError> {
     .expect("pre_process failed");
 
     // Performs encryption or decryption
-    let bytes = rfc::crypt(args.decrypt, bytes, key, args.cipher.rfc_mode())?;
+    let bytes =
+        rfc::crypt(args.decrypt, bytes, key, args.cipher.rfc_mode()).expect("cryptography failed");
 
     // Post-processes output bytes, e.g. compress or encode
     rfc::post_process_and_write_out(
