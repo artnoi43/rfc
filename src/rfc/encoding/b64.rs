@@ -4,16 +4,16 @@ use std::io::{Read, Write};
 
 use crate::rfc::error::RfcError;
 
-pub fn encode_b64<S, D>(src: &mut S, dst: &mut D) -> Result<(), RfcError>
+pub fn encode_b64<S, D>(src: &mut S, dst: &mut D) -> Result<usize, RfcError>
 where
     S: Read,
     D: Write,
 {
     let mut encoder = base64::write::EncoderWriter::new(dst, &b64_engine);
 
-    std::io::copy(src, &mut encoder).map_err(|err| RfcError::IoError(err))?;
+    let written = std::io::copy(src, &mut encoder).map_err(|err| RfcError::IoError(err))?;
 
-    Ok(())
+    Ok(written as usize)
 }
 
 pub fn decode_b64<S, D>(src: &mut S, dst: &mut D) -> Result<(), RfcError>
@@ -28,8 +28,12 @@ where
     Ok(())
 }
 
-pub fn prealloc_size_b64(len: usize) -> usize {
-    len * 4 / 3 + 4
+pub fn prealloc_to_b64(len: usize) -> usize {
+    (len * 4) / 3 + 4
+}
+
+pub fn prealloc_from_b64(b64_len: usize) -> usize {
+    (b64_len * 3 / 4) + 4
 }
 
 #[test]
@@ -37,7 +41,7 @@ fn test_b64() {
     let filename = "./Cargo.toml";
     let mut infile = std::fs::File::open(filename).unwrap();
     let infile_len = infile.metadata().unwrap().len() as usize;
-    let mut encoded = Vec::with_capacity(prealloc_size_b64(infile_len));
+    let mut encoded = Vec::with_capacity(prealloc_to_b64(infile_len));
     let mut decoded = Vec::with_capacity(infile_len);
 
     encode_b64(&mut infile, &mut encoded).unwrap();

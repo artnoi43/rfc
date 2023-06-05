@@ -20,7 +20,7 @@ use error::RfcError;
 /// Pre-processes input bytes
 pub fn pre_process<R>(
     decrypt: bool,
-    input: R,
+    mut input: R,
     input_len: Option<usize>,
     codec: encoding::Encoding,
     compress: bool,
@@ -29,13 +29,26 @@ where
     R: Read,
 {
     match decrypt {
-        true => buf::from_reader(input, input_len), // TODO: Decode decryption input
+        true => {
+            match codec {
+                encoding::Encoding::B64 => {
+                    // Allocate a buffer that would fit plain bytes decoded from Base64-encoded bytes of `input_len` length
+                    let mut buf: Vec<u8> =
+                        Vec::with_capacity(encoding::prealloc_from_b64(input_len.unwrap_or(0)));
+
+                    encoding::decode_b64(&mut input, &mut buf)?;
+
+                    Ok(buf)
+                }
+                _ => buf::from_reader(input, input_len), // TODO: Decode decryption input
+            }
+        }
         false => {
             if compress {
-                lz4::compress_to_bytes(input, input_len)
-            } else {
-                buf::from_reader(input, input_len)
+                return lz4::compress_to_bytes(input, input_len);
             }
+
+            buf::from_reader(input, input_len)
         }
     }
 }
@@ -84,19 +97,25 @@ pub fn post_process_and_write_out<W: Write>(
     compress: bool,
     output: &mut W,
 ) -> Result<usize, RfcError> {
-    let bytes = match decrypt {
+    match decrypt {
         true => match compress {
-            false => bytes,
-            true => lz4::decompress_to_bytes(&mut bytes.as_slice(), Some(bytes.len()))?,
+            false => write_out(output, &bytes),
+            true => lz4::decompress(&mut bytes.as_slice(), output),
         },
 
         false => match codec {
-            encoding::Encoding::Plain => bytes,
-            _ => bytes, // TODO: Encode encryption output
+            encoding::Encoding::B64 => encoding::encode_b64(&mut bytes.as_slice(), output),
+            _ => write_out(output, &bytes),
         },
-    };
+    }
+}
 
-    output.write(&bytes).map_err(|err| RfcError::IoError(err))
+fn write_out<W, T>(mut w: W, data: T) -> Result<usize, RfcError>
+where
+    W: Write,
+    T: AsRef<[u8]>,
+{
+    w.write(data.as_ref()).map_err(|err| RfcError::IoError(err))
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]

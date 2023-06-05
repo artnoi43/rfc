@@ -35,31 +35,31 @@ where
 }
 
 /// Reads bytes from Reader `from` and compresses using level. Output is written to Writer `to`.
-fn compress<R, W>(mut from: R, to: W) -> Result<(), RfcError>
+pub fn compress<R, W>(mut from: R, to: W) -> Result<usize, RfcError>
 where
     R: Read,
     W: Write,
 {
     let mut encoder = lz4_flex::frame::FrameEncoder::new(to);
 
-    io::copy(&mut from, &mut encoder).map_err(|err| RfcError::IoError(err.into()))?;
+    let written = io::copy(&mut from, &mut encoder).map_err(|err| RfcError::IoError(err.into()))?;
     encoder
         .finish()
         .map_err(|err| RfcError::IoError(err.into()))?;
 
-    Ok(())
+    Ok(written as usize)
 }
 
 /// Decompresses from Reader `from` to Writer `to`
-fn decompress<R, W>(r: R, mut w: W) -> Result<(), RfcError>
+pub fn decompress<R, W>(r: R, mut w: W) -> Result<usize, RfcError>
 where
     R: Read,
     W: Write,
 {
     let mut decoder = lz4_flex::frame::FrameDecoder::new(r);
-    io::copy(&mut decoder, &mut w).map_err(|err| RfcError::IoError(err))?;
+    let written = io::copy(&mut decoder, &mut w).map_err(|err| RfcError::IoError(err))?;
 
-    Ok(())
+    Ok(written as usize)
 }
 
 #[test]
