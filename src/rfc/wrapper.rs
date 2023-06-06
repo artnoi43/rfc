@@ -19,7 +19,7 @@ use super::error::RfcError;
     Debug,
 )]
 #[archive(check_bytes)]
-pub(crate) struct WrapperBytes<H>(pub H, pub Vec<u8>);
+pub struct WrapperBytes<H>(pub H, pub Vec<u8>);
 
 /// Methods using `rkyv`.
 impl<'a, H> WrapperBytes<H>
