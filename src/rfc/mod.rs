@@ -79,7 +79,7 @@ where
 }
 
 /// Derives new key from `key` using PBKDF2 and use the new key to encrypt/decrypt bytes.
-fn crypt(decrypt: bool, bytes: Vec<u8>, key: Vec<u8>, mode: Mode) -> Result<Vec<u8>, RfcError> {
+pub fn crypt(decrypt: bool, bytes: Vec<u8>, key: Vec<u8>, mode: Mode) -> Result<Vec<u8>, RfcError> {
     // Extract encoded salt if decrypt, otherwise generate new salt
     let (salt, bytes) = match decrypt {
         false => (generate_salt()?, bytes),
@@ -110,7 +110,7 @@ fn crypt(decrypt: bool, bytes: Vec<u8>, key: Vec<u8>, mode: Mode) -> Result<Vec<
 }
 
 /// Post-processes output bytes.
-fn post_process_and_write_out<W: Write>(
+pub fn post_process_and_write_out<W: Write>(
     decrypt: bool,
     bytes: Vec<u8>,
     codec: encoding::Encoding,
