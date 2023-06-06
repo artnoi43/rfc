@@ -50,7 +50,7 @@ where
     Ok(written as usize)
 }
 
-/// Decompresses from Reader `from` to Writer `to`
+/// Decompresses from Reader `r` to Writer `w`
 pub fn decompress<R, W>(r: R, mut w: W) -> Result<usize, RfcError>
 where
     R: Read,

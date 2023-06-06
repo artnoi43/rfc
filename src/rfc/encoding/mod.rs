@@ -1,15 +1,16 @@
 mod b64;
+mod hex;
 
 use clap;
 
-pub use b64::*;
+pub use self::b64::*;
+pub use self::hex::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, clap::ValueEnum)]
 pub enum Encoding {
     Plain,
     Hex,
     B64,
-    Bin,
 }
 
 impl std::fmt::Display for Encoding {
@@ -18,7 +19,6 @@ impl std::fmt::Display for Encoding {
             Self::Plain => write!(f, "plain"),
             Self::Hex => write!(f, "hex"),
             Self::B64 => write!(f, "b64"),
-            Self::Bin => write!(f, "bin"),
         }
     }
 }

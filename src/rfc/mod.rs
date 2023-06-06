@@ -37,8 +37,11 @@ where
                         Vec::with_capacity(encoding::prealloc_from_b64(input_len.unwrap_or(0)));
 
                     encoding::decode_b64(&mut input, &mut buf)?;
-
                     Ok(buf)
+                }
+                encoding::Encoding::Hex => {
+                    let bytes = buf::from_reader(input, input_len)?;
+                    encoding::decode_hex(bytes)
                 }
                 _ => buf::from_reader(input, input_len), // TODO: Decode decryption input
             }
@@ -105,6 +108,7 @@ pub fn post_process_and_write_out<W: Write>(
 
         false => match codec {
             encoding::Encoding::B64 => encoding::encode_b64(&mut bytes.as_slice(), output),
+            encoding::Encoding::Hex => write_out(output, encoding::encode_hex(bytes)),
             _ => write_out(output, &bytes),
         },
     }
