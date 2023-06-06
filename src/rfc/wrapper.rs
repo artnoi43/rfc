@@ -9,14 +9,14 @@ use super::error::RfcError;
 /// before passing serializing their ciphertext plus metadata back
 /// as `Vec<u8>` to rfc.
 #[derive(
+    Clone,
+    PartialEq,
+    Debug,
     rkyv::Archive,
     rkyv::Serialize,
     rkyv::Deserialize,
     serde::Serialize,
     serde::Deserialize,
-    Clone,
-    PartialEq,
-    Debug,
 )]
 #[archive(check_bytes)]
 pub struct WrapperBytes<H>(pub H, pub Vec<u8>);

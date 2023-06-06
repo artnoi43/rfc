@@ -38,7 +38,7 @@ where
 }
 
 /// Reads all bytes from `reader` into a new byte vector.
-pub fn from_reader<R>(mut reader: R, prealloc: Option<usize>) -> Result<Vec<u8>, RfcError>
+pub fn all_from_reader<R>(mut reader: R, prealloc: Option<usize>) -> Result<Vec<u8>, RfcError>
 where
     R: Read,
 {
@@ -51,7 +51,46 @@ where
     Ok(buf)
 }
 
+#[test]
+fn test_all_from_reader() {
+    let bytes = include_bytes!("../../Cargo.lock").to_vec();
+    for i in 0..bytes.len() + 10 {
+        let buf = all_from_reader(&mut bytes.as_slice(), Some(i)).unwrap();
+        assert_eq!(bytes.len(), buf.len());
+        assert_eq!(bytes, buf);
+    }
+}
+
 // Fills buf with bytes
-fn fill(mut buf: &mut [u8], bytes: &[u8]) {
+pub fn fill(mut buf: &mut [u8], bytes: &[u8]) {
     buf.write(bytes).expect("filling bytes failed");
+}
+
+pub fn read_file<P>(filename: P) -> Result<Vec<u8>, RfcError>
+where
+    P: AsRef<std::path::Path>,
+{
+    std::fs::read(filename).map_err(|err| RfcError::IoError(err))
+}
+
+pub fn open_file<P>(filename: P, write: bool) -> Result<std::fs::File, RfcError>
+where
+    P: AsRef<std::path::Path>,
+{
+    std::fs::OpenOptions::new()
+        .create(write)
+        .write(write)
+        .read(true)
+        .open(filename)
+        .map_err(|err| RfcError::IoError(err))
+}
+
+#[test]
+fn test_open_file() {
+    vec!["./Cargo.toml", "./Cargo.lock"]
+        .into_iter()
+        .for_each(|filename| {
+            assert!(open_file(filename, true).is_ok());
+            assert!(open_file(filename, false).is_ok());
+        })
 }

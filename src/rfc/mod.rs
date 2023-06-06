@@ -1,20 +1,19 @@
 pub mod aes;
+pub mod buf;
+pub mod cipher;
 pub mod encoding;
 pub mod error;
 pub mod lz4;
 pub mod pbkdf2;
-
-mod buf;
-mod cipher;
-mod wrapper;
+pub mod wrapper;
 
 use std::io::{Read, Write};
 
 // Exports as lib
-pub use self::aes::{CipherAes128, CipherAes256};
-pub use self::cipher::Cipher;
-pub use self::pbkdf2::{generate_salt, pbkdf2_key};
-pub use self::wrapper::WrapperBytes;
+use self::aes::{CipherAes128, CipherAes256};
+use self::cipher::Cipher;
+use self::pbkdf2::{generate_salt, pbkdf2_key};
+use self::wrapper::WrapperBytes;
 
 use error::RfcError;
 
@@ -59,13 +58,15 @@ where
                         Vec::with_capacity(encoding::prealloc_from_b64(input_len.unwrap_or(0)));
 
                     encoding::decode_b64(&mut input, &mut buf)?;
+
+                    buf.truncate(buf.len());
                     Ok(buf)
                 }
                 encoding::Encoding::Hex => {
-                    let bytes = buf::from_reader(input, input_len)?;
+                    let bytes = buf::all_from_reader(input, input_len)?;
                     encoding::decode_hex(bytes)
                 }
-                _ => buf::from_reader(input, input_len), // TODO: Decode decryption input
+                _ => buf::all_from_reader(input, input_len), // TODO: Decode decryption input
             }
         }
         false => {
@@ -73,7 +74,7 @@ where
                 return lz4::compress_to_bytes(input, input_len);
             }
 
-            buf::from_reader(input, input_len)
+            buf::all_from_reader(input, input_len)
         }
     }
 }
@@ -155,7 +156,14 @@ impl std::fmt::Display for Mode {
 
 #[cfg(test)]
 pub mod tests {
-    use super::{pre_process, Cipher, Mode};
+    use super::{
+        buf::open_file,
+        buf::read_file,
+        core, crypt,
+        encoding::Encoding::{self, *},
+        Cipher, Mode,
+    };
+    use std::io::Read;
 
     #[test]
     fn test_crypt() {
@@ -163,20 +171,99 @@ pub mod tests {
         test_rfc_crypt(Mode::Aes256);
     }
 
-    pub fn test_cases() -> Vec<&'static str> {
+    #[test]
+    fn test_core_file() {
+        let modes: Vec<Mode> = vec![Mode::Aes128, Mode::Aes256];
+        let encodings: Vec<Encoding> = vec![Plain, B64, Hex];
+        let compresses: [bool; 2] = [false, true];
+
+        let infiles = vec!["./Cargo.toml"];
+        let key = b"this_is_my_key".to_vec();
+
+        infiles.into_iter().for_each(|filename| {
+            let mut infile = open_file(filename, false).unwrap();
+            let infile_len = Some(infile.metadata().unwrap().len() as usize);
+
+            let mut plaintext = Vec::with_capacity(infile_len.unwrap());
+            infile.read_to_end(&mut plaintext).unwrap();
+
+            modes.iter().for_each(|mode| {
+                compresses.iter().for_each(|compress| {
+                    encodings.iter().for_each(|codec| {
+                        println!(
+                            "testing with mode: {mode}, compress: {compress}, encoding: {codec}"
+                        );
+
+                        test_core(
+                            plaintext.clone(),
+                            *mode,
+                            key.clone(),
+                            &infile,
+                            infile_len,
+                            *codec,
+                            *compress,
+                        )
+                    });
+                });
+            });
+        });
+    }
+
+    fn test_core<R>(
+        expected_bytes: Vec<u8>,
+        mode: Mode,
+        key: Vec<u8>,
+        input: R,
+        input_len: Option<usize>,
+        codec: Encoding,
+        compress: bool,
+    ) where
+        R: Read,
+    {
+        let mut ciphertext = Vec::<u8>::with_capacity(input_len.unwrap());
+        let (encrypt, decrypt) = (false, true);
+
+        core(
+            encrypt,
+            key.clone(),
+            mode,
+            input,
+            input_len,
+            &mut ciphertext,
+            codec,
+            compress,
+        )
+        .expect("encryption failed");
+
+        let mut decrypted = Vec::<u8>::with_capacity(expected_bytes.len());
+        core(
+            decrypt,
+            key,
+            mode,
+            &ciphertext[..],
+            Some(ciphertext.len()),
+            &mut decrypted,
+            codec,
+            compress,
+        )
+        .expect("decryption failed");
+        println!("len: {} cap: {}", decrypted.len(), decrypted.capacity());
+
+        assert_eq!(expected_bytes, decrypted);
+    }
+
+    pub fn test_cases() -> Vec<Vec<u8>> {
         vec![
-            include_str!("../../Cargo.toml"),
-            include_str!("./mod.rs"),
-            "foo",
-            "",
+            include_bytes!("../../Cargo.toml").to_vec(),
+            include_bytes!("./mod.rs").to_vec(),
+            "foo".as_bytes().to_vec(),
+            "".as_bytes().to_vec(),
         ]
     }
 
     pub fn test_rfc_crypt(cipher: Mode) {
-        use super::crypt;
-
         test_cases().into_iter().for_each(|plaintext| {
-            let plaintext = plaintext.as_bytes();
+            let plaintext = plaintext;
             let key = b"this_is_my_key";
 
             let ciphertext = crypt(false, plaintext.to_vec(), key.clone().to_vec(), cipher)
@@ -191,7 +278,7 @@ pub mod tests {
 
     pub fn test_cipher<C: Cipher>() {
         test_cases().into_iter().for_each(|plaintext| {
-            let plaintext = plaintext.as_bytes();
+            let plaintext = plaintext;
             let key = "this_is_my_key".as_bytes();
             let ciphertext = C::encrypt(plaintext.clone(), &key).expect("encryption failed");
             assert!(ciphertext.len() != 0);

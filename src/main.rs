@@ -6,6 +6,7 @@ mod rfc;
 use clap::Parser;
 use rpassword::read_password;
 
+use rfc::buf::{open_file, read_file};
 use rfc::error::RfcError;
 
 fn main() -> Result<(), RfcError> {
@@ -27,7 +28,7 @@ fn main() -> Result<(), RfcError> {
         args.decrypt,
         key,
         args.cipher.rfc_mode(),
-        infile,
+        &infile,
         infile_len,
         &mut open_file(args.outfile, true)?,
         args.encoding,
@@ -35,35 +36,6 @@ fn main() -> Result<(), RfcError> {
     )?;
 
     Ok(())
-}
-
-fn read_file<P>(filename: P) -> Result<Vec<u8>, RfcError>
-where
-    P: AsRef<std::path::Path>,
-{
-    std::fs::read(filename).map_err(|err| RfcError::IoError(err))
-}
-
-fn open_file<P>(filename: P, write: bool) -> Result<std::fs::File, RfcError>
-where
-    P: AsRef<std::path::Path>,
-{
-    std::fs::OpenOptions::new()
-        .create(write)
-        .write(write)
-        .read(true)
-        .open(filename)
-        .map_err(|err| RfcError::IoError(err))
-}
-
-#[test]
-fn test_open_file() {
-    vec!["./Cargo.toml", "./Cargo.lock"]
-        .into_iter()
-        .for_each(|filename| {
-            assert!(open_file(filename, true).is_ok());
-            assert!(open_file(filename, false).is_ok());
-        })
 }
 
 fn get_passphrase<'a>() -> Result<Vec<u8>, RfcError> {

@@ -37,7 +37,7 @@ mod tests {
     }
 
     fn new_file() -> WrapperBytes<HeaderAes> {
-        let content = include_str!("./header.rs").as_bytes().to_vec();
+        let content = include_bytes!("./header.rs").to_vec();
         let extra = 16usize;
 
         let header = HeaderAes(extra);
