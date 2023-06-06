@@ -10,15 +10,37 @@ mod wrapper;
 
 use std::io::{Read, Write};
 
-pub use cipher::Cipher;
+// Exports as lib
+pub use self::aes::{CipherAes128, CipherAes256};
+pub use self::cipher::Cipher;
+pub use self::pbkdf2::{generate_salt, pbkdf2_key};
+pub use self::wrapper::WrapperBytes;
 
-use self::aes::{CipherAes128, CipherAes256};
-use self::pbkdf2::{generate_salt, pbkdf2_key};
-use self::wrapper::WrapperBytes;
 use error::RfcError;
 
+/// core wraps all core logic of rfc into a function.
+pub fn core<R, W>(
+    decrypt: bool,
+    key: Vec<u8>,
+    mode: Mode,
+    input: R,
+    input_len: Option<usize>,
+    mut output: W,
+    codec: encoding::Encoding,
+    compress: bool,
+) -> Result<usize, RfcError>
+where
+    R: Read,
+    W: Write,
+{
+    let bytes = pre_process(decrypt, input, input_len, codec, compress)?;
+    let bytes = crypt(decrypt, bytes, key, mode)?;
+
+    post_process_and_write_out(decrypt, bytes, codec, compress, &mut output)
+}
+
 /// Pre-processes input bytes
-pub fn pre_process<R>(
+fn pre_process<R>(
     decrypt: bool,
     mut input: R,
     input_len: Option<usize>,
@@ -57,12 +79,7 @@ where
 }
 
 /// Derives new key from `key` using PBKDF2 and use the new key to encrypt/decrypt bytes.
-pub fn crypt(
-    decrypt: bool,
-    bytes: Vec<u8>,
-    key: Vec<u8>,
-    cipher: Mode,
-) -> Result<Vec<u8>, RfcError> {
+fn crypt(decrypt: bool, bytes: Vec<u8>, key: Vec<u8>, mode: Mode) -> Result<Vec<u8>, RfcError> {
     // Extract encoded salt if decrypt, otherwise generate new salt
     let (salt, bytes) = match decrypt {
         false => (generate_salt()?, bytes),
@@ -72,7 +89,7 @@ pub fn crypt(
         }
     };
 
-    let result = match cipher {
+    let result = match mode {
         Mode::Aes128 => CipherAes128::crypt(
             bytes,
             pbkdf2_key::<{ CipherAes128::KEY_SIZE }, _, _>(key, &salt)?,
@@ -93,7 +110,7 @@ pub fn crypt(
 }
 
 /// Post-processes output bytes.
-pub fn post_process_and_write_out<W: Write>(
+fn post_process_and_write_out<W: Write>(
     decrypt: bool,
     bytes: Vec<u8>,
     codec: encoding::Encoding,

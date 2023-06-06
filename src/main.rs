@@ -23,29 +23,16 @@ fn main() -> Result<(), RfcError> {
             .len() as usize,
     );
 
-    // Pre-processes file bytes, e.g. decompress or decode
-    let bytes = rfc::pre_process(
+    let _ = rfc::core(
         args.decrypt,
+        key,
+        args.cipher.rfc_mode(),
         infile,
         infile_len,
-        args.encoding,
-        args.compress,
-    )
-    .expect("pre_process failed");
-
-    // Performs encryption or decryption
-    let bytes =
-        rfc::crypt(args.decrypt, bytes, key, args.cipher.rfc_mode()).expect("cryptography failed");
-
-    // Post-processes output bytes, e.g. compress or encode
-    rfc::post_process_and_write_out(
-        args.decrypt,
-        bytes,
-        args.encoding,
-        args.compress,
         &mut open_file(args.outfile, true)?,
-    )
-    .expect("post_process failed");
+        args.encoding,
+        args.compress,
+    )?;
 
     Ok(())
 }
