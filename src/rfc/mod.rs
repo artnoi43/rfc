@@ -52,6 +52,7 @@ where
     match decrypt {
         true => {
             match codec {
+                encoding::Encoding::Plain => buf::all_from_reader(input, input_len),
                 encoding::Encoding::B64 => {
                     // Allocate a buffer that would fit plain bytes decoded from Base64-encoded bytes of `input_len` length
                     let mut buf: Vec<u8> =
@@ -66,7 +67,6 @@ where
                     let bytes = buf::all_from_reader(input, input_len)?;
                     encoding::decode_hex(bytes)
                 }
-                _ => buf::all_from_reader(input, input_len), // TODO: Decode decryption input
             }
         }
         false => {
@@ -174,7 +174,7 @@ pub mod tests {
     #[test]
     fn test_core_file() {
         let modes: Vec<Mode> = vec![Mode::Aes128, Mode::Aes256];
-        let encodings: Vec<Encoding> = vec![Plain, B64, Hex];
+        let encodings: Vec<Encoding> = vec![Plain, Hex, B64];
         let compresses: [bool; 2] = [false, true];
 
         let infiles = vec!["./Cargo.toml"];
@@ -183,13 +183,15 @@ pub mod tests {
         infiles.into_iter().for_each(|filename| {
             let mut infile = open_file(filename, false).unwrap();
             let infile_len = Some(infile.metadata().unwrap().len() as usize);
-
             let mut plaintext = Vec::with_capacity(infile_len.unwrap());
+
             infile.read_to_end(&mut plaintext).unwrap();
 
             modes.iter().for_each(|mode| {
                 compresses.iter().for_each(|compress| {
                     encodings.iter().for_each(|codec| {
+                        // Open again for every sub-test
+                        let mut infile = open_file(filename, false).unwrap();
                         println!(
                             "testing with mode: {mode}, compress: {compress}, encoding: {codec}"
                         );
@@ -234,6 +236,11 @@ pub mod tests {
             compress,
         )
         .expect("encryption failed");
+        println!(
+            "ciphertext len: {} cap: {}",
+            ciphertext.len(),
+            ciphertext.capacity()
+        );
 
         let mut decrypted = Vec::<u8>::with_capacity(expected_bytes.len());
         core(
@@ -247,7 +254,11 @@ pub mod tests {
             compress,
         )
         .expect("decryption failed");
-        println!("len: {} cap: {}", decrypted.len(), decrypted.capacity());
+        println!(
+            "decrypted len: {} cap: {}",
+            decrypted.len(),
+            decrypted.capacity()
+        );
 
         assert_eq!(expected_bytes, decrypted);
     }

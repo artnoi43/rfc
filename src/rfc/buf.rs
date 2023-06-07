@@ -43,7 +43,7 @@ where
     R: Read,
 {
     let mut buf = Vec::with_capacity(prealloc.unwrap_or(0));
-    reader
+    let _written = reader
         .read_to_end(&mut buf)
         .map_err(|err| RfcError::IoError(err))?;
 
