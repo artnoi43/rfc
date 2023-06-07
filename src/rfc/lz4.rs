@@ -4,46 +4,56 @@ use std::io::{self, Read, Write};
 
 use super::error::RfcError;
 
+pub fn compress_bytes<T>(bytes: T) -> Vec<u8>
+where
+    T: AsRef<[u8]>,
+{
+    lz4_flex::compress(bytes.as_ref())
+}
+
 /// Pre-allocates a buffer with capacity `prealloc` if any,
 /// and compresses data from `from` into the buffer,
 /// truncating any buffer extra capacity before returning the buffer.
-pub fn compress_to_bytes<R>(from: R, prealloc: Option<usize>) -> Result<Vec<u8>, RfcError>
+pub fn compress_to_bytes_sized<R>(from: R, prealloc: Option<usize>) -> Result<Vec<u8>, RfcError>
 where
     R: Read,
 {
     let mut buf = Vec::with_capacity(prealloc.unwrap_or(0));
-    compress(from, &mut buf)?;
+    compress_reader_to_writer(from, &mut buf)?;
 
     buf.truncate(buf.len());
-
     Ok(buf)
 }
 
 /// Pre-allocates a buffer with capacity `prealloc` if any,
 /// and decompresses data from `from` into the buffer
 /// truncating any buffer extra capacity before returning the buffer.
-pub fn decompress_to_bytes<R>(mut from: R, prealloc: Option<usize>) -> Result<Vec<u8>, RfcError>
+pub fn decompress_to_bytes_sized<R>(
+    mut from: R,
+    prealloc: Option<usize>,
+) -> Result<Vec<u8>, RfcError>
 where
     R: Read,
 {
     let mut buf = Vec::with_capacity(prealloc.unwrap_or(0));
-    decompress(&mut from, &mut buf)?;
+    decompress_reader_to_writer(&mut from, &mut buf)?;
 
     buf.truncate(buf.len());
-
     Ok(buf)
 }
 
 /// Reads bytes from Reader `from` and compresses using level. Output is written to Writer `to`.
-pub fn compress<R, W>(mut from: R, to: W) -> Result<usize, RfcError>
+pub fn compress_reader_to_writer<R, W>(mut from: R, to: W) -> Result<usize, RfcError>
 where
     R: Read,
     W: Write,
 {
-    let mut encoder = lz4_flex::frame::FrameEncoder::new(to);
+    let mut compressor = lz4_flex::frame::FrameEncoder::new(to);
 
-    let written = io::copy(&mut from, &mut encoder).map_err(|err| RfcError::IoError(err.into()))?;
-    encoder
+    let written =
+        io::copy(&mut from, &mut compressor).map_err(|err| RfcError::IoError(err.into()))?;
+
+    compressor
         .finish()
         .map_err(|err| RfcError::IoError(err.into()))?;
 
@@ -51,13 +61,13 @@ where
 }
 
 /// Decompresses from Reader `r` to Writer `w`
-pub fn decompress<R, W>(r: R, mut w: W) -> Result<usize, RfcError>
+pub fn decompress_reader_to_writer<R, W>(r: R, mut w: W) -> Result<usize, RfcError>
 where
     R: Read,
     W: Write,
 {
-    let mut decoder = lz4_flex::frame::FrameDecoder::new(r);
-    let written = io::copy(&mut decoder, &mut w).map_err(|err| RfcError::IoError(err))?;
+    let mut decompressor = lz4_flex::frame::FrameDecoder::new(r);
+    let written = io::copy(&mut decompressor, &mut w).map_err(|err| RfcError::IoError(err))?;
 
     Ok(written as usize)
 }
@@ -68,9 +78,10 @@ fn test_compress_bytes() {
 
     let infile = std::fs::File::open(filename).expect("failed to open infile");
 
-    let compressed = compress_to_bytes(infile, None).expect("failed to compress");
-    let decompressed = decompress_to_bytes(&mut compressed.as_slice(), Some(compressed.len()))
-        .expect("failed to decompress");
+    let compressed = compress_to_bytes_sized(infile, None).expect("failed to compress");
+    let decompressed =
+        decompress_to_bytes_sized(&mut compressed.as_slice(), Some(compressed.len()))
+            .expect("failed to decompress");
 
     let original = std::fs::read(filename).expect("failed to read infile");
     assert_eq!(original, decompressed)
@@ -84,12 +95,12 @@ fn testinfilepress() {
     let file = std::fs::File::open(filename).expect("failed to open file");
 
     let mut cmp = Vec::<u8>::new();
-    if let Err(err) = compress(file, &mut cmp) {
+    if let Err(err) = compress_reader_to_writer(file, &mut cmp) {
         panic!("got compression error: {:?}", err);
     };
 
     let mut decmp = Vec::<u8>::new();
-    if let Err(err) = decompress(&mut cmp.as_slice(), &mut decmp) {
+    if let Err(err) = decompress_reader_to_writer(&mut cmp.as_slice(), &mut decmp) {
         panic!("got decompression error: {:?}", err);
     }
 
@@ -114,7 +125,7 @@ fn test_compress_file() {
         .open(tmp_filename)
         .expect("failed to create tmp file");
 
-    if let Err(err) = compress(infile, &tmp_file) {
+    if let Err(err) = compress_reader_to_writer(infile, &tmp_file) {
         std::fs::remove_file(tmp_filename).expect("failed to remove tmp_file");
         panic!("failed to compress to tmp_file: {:?}", err);
     }
@@ -122,7 +133,7 @@ fn test_compress_file() {
     let tmp_file = std::fs::File::open(tmp_filename).expect("failed to re-open tmp_file");
     let compressed_len = tmp_file.metadata().expect("").len() as usize;
     let mut decmp = Vec::with_capacity(compressed_len);
-    if let Err(err) = decompress(tmp_file, &mut decmp) {
+    if let Err(err) = decompress_reader_to_writer(tmp_file, &mut decmp) {
         std::fs::remove_file(tmp_filename).expect("failed to remove tmp_file");
         panic!("failed to decompress tmp_file: {:?}", err)
     }

@@ -52,7 +52,7 @@ where
     match decrypt {
         true => {
             match codec {
-                encoding::Encoding::Plain => buf::all_from_reader(input, input_len),
+                encoding::Encoding::Plain => buf::bytes_from_reader(input, input_len),
                 encoding::Encoding::B64 => {
                     // Allocate a buffer that would fit plain bytes decoded from Base64-encoded bytes of `input_len` length
                     let mut buf: Vec<u8> =
@@ -64,17 +64,31 @@ where
                     Ok(buf)
                 }
                 encoding::Encoding::Hex => {
-                    let bytes = buf::all_from_reader(input, input_len)?;
+                    let bytes = buf::bytes_from_reader(input, input_len)?;
                     encoding::decode_hex(bytes)
                 }
             }
         }
         false => {
-            if compress {
-                return lz4::compress_to_bytes(input, input_len);
-            }
+            match compress {
+                true => {
+                    let (uncompressed_len, compressed): (usize, Vec<u8>) = match input_len {
+                        // If input_len is not given, then read to bytes before compress so that we know uncompressed length
+                        None => {
+                            let bytes = buf::bytes_from_reader(input, Some(1024))?;
+                            (bytes.len(), lz4::compress_bytes(&bytes))
+                        }
+                        Some(len) => {
+                            let compressed = lz4::compress_to_bytes_sized(input, input_len)?;
+                            (len, compressed)
+                        }
+                    };
 
-            buf::all_from_reader(input, input_len)
+                    return WrapperBytes::<usize>(uncompressed_len, compressed).encode();
+                }
+
+                false => buf::bytes_from_reader(input, input_len),
+            }
         }
     }
 }
@@ -85,8 +99,8 @@ pub fn crypt(decrypt: bool, bytes: Vec<u8>, key: Vec<u8>, mode: Mode) -> Result<
     let (salt, bytes) = match decrypt {
         false => (generate_salt()?, bytes),
         true => {
-            let wrapped_bytes = WrapperBytes::<Vec<u8>>::decode_archived(&bytes)?;
-            (wrapped_bytes.0.to_vec(), wrapped_bytes.1.to_vec())
+            let wrapped_bytes = WrapperBytes::<Vec<u8>>::decode(&bytes)?;
+            (wrapped_bytes.0, wrapped_bytes.1)
         }
     };
 
@@ -118,10 +132,17 @@ pub fn post_process_and_write_out<W: Write>(
     compress: bool,
     output: &mut W,
 ) -> Result<usize, RfcError> {
+    use rkyv::vec::ArchivedVec;
     match decrypt {
         true => match compress {
+            true => {
+                let with_len = WrapperBytes::<usize>::decode_archived(&bytes)?;
+                let (uncompressed_len, compressed): (u32, &ArchivedVec<_>) =
+                    (with_len.0, &with_len.1);
+
+                return lz4::decompress_reader_to_writer(&mut compressed.as_slice(), output);
+            }
             false => write_out(output, &bytes),
-            true => lz4::decompress(&mut bytes.as_slice(), output),
         },
 
         false => match codec {
@@ -191,7 +212,7 @@ pub mod tests {
                 compresses.iter().for_each(|compress| {
                     encodings.iter().for_each(|codec| {
                         // Open again for every sub-test
-                        let mut infile = open_file(filename, false).unwrap();
+                        let infile = open_file(filename, false).unwrap();
                         println!(
                             "testing with mode: {mode}, compress: {compress}, encoding: {codec}"
                         );
@@ -225,6 +246,12 @@ pub mod tests {
         let mut ciphertext = Vec::<u8>::with_capacity(input_len.unwrap());
         let (encrypt, decrypt) = (false, true);
 
+        println!(
+            "plaintext len: {} cap: {}",
+            expected_bytes.len(),
+            expected_bytes.capacity()
+        );
+
         core(
             encrypt,
             key.clone(),
@@ -236,6 +263,7 @@ pub mod tests {
             compress,
         )
         .expect("encryption failed");
+
         println!(
             "ciphertext len: {} cap: {}",
             ciphertext.len(),
@@ -243,6 +271,12 @@ pub mod tests {
         );
 
         let mut decrypted = Vec::<u8>::with_capacity(expected_bytes.len());
+        println!(
+            "decrypted created len: {} cap: {}",
+            decrypted.len(),
+            decrypted.capacity()
+        );
+
         core(
             decrypt,
             key,
@@ -254,6 +288,7 @@ pub mod tests {
             compress,
         )
         .expect("decryption failed");
+
         println!(
             "decrypted len: {} cap: {}",
             decrypted.len(),
