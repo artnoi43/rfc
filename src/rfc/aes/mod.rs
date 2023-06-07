@@ -50,7 +50,7 @@ impl Cipher for CipherAes128 {
         K: AsRef<[u8]>,
     {
         let infile = WrapperBytes::<HeaderAes>::decode_archived(bytes.as_ref())?;
-        let ciphertext = infile.1.to_owned();
+        let ciphertext = &infile.1;
 
         let (mut blocks, ciphertext_extra) = aes_blocks(ciphertext);
         if ciphertext_extra != 0 {
@@ -89,7 +89,7 @@ impl Cipher for CipherAes256 {
         K: AsRef<[u8]>,
     {
         let infile = WrapperBytes::<HeaderAes>::decode_archived(bytes.as_ref())?;
-        let ciphertext = infile.1.to_owned();
+        let ciphertext = &infile.1;
 
         let (mut blocks, ciphertext_extra) = aes_blocks(ciphertext);
         if ciphertext_extra != 0 {
