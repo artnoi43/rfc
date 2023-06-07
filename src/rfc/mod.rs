@@ -84,7 +84,7 @@ where
                         }
                     };
 
-                    return WrapperBytes::<usize>(uncompressed_len, compressed).encode();
+                    WrapperBytes::<usize>(uncompressed_len, compressed).encode()
                 }
 
                 false => buf::bytes_from_reader(input, input_len),
@@ -140,7 +140,7 @@ pub fn post_process_and_write_out<W: Write>(
                 let (uncompressed_len, compressed): (u32, &ArchivedVec<_>) =
                     (with_len.0, &with_len.1);
 
-                return lz4::decompress_reader_to_writer(&mut compressed.as_slice(), output);
+                lz4::decompress_reader_to_writer(&mut compressed.as_slice(), output)
             }
             false => write_out(output, &bytes),
         },
