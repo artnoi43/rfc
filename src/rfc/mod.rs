@@ -297,16 +297,16 @@ pub mod tests {
 
             infile.read_to_end(&mut plaintext).unwrap();
 
-            modes.iter().for_each(|mode| {
-                compresses.iter().for_each(|compress| {
-                    encodings.iter().for_each(|codec| {
+            compresses.iter().for_each(|compress| {
+                encodings.iter().for_each(|codec| {
+                    modes.iter().for_each(|mode| {
                         // Open again for every sub-test
                         let infile = open_file(filename, false).unwrap();
                         println!(
                             "testing with mode: {mode}, compress: {compress}, encoding: {codec}"
                         );
 
-                        test_core(
+                        test_rfc_core(
                             plaintext.clone(),
                             *mode,
                             key.clone(),
@@ -321,7 +321,7 @@ pub mod tests {
         });
     }
 
-    fn test_core<R>(
+    fn test_rfc_core<R>(
         expected_bytes: Vec<u8>,
         mode: Mode,
         key: Vec<u8>,
@@ -389,15 +389,19 @@ pub mod tests {
 
     #[test]
     fn test_core_buf() {
-        let modes: Vec<Mode> = vec![Mode::Aes128, Mode::Aes256];
         let encodings: Vec<Encoding> = vec![Plain, Hex, B64];
-        let compresses: [bool; 2] = [false, true];
-        let key = b"this_is_my_key".to_vec();
+        let modes: Vec<Mode> = vec![Mode::Aes128, Mode::Aes256];
+        let compresses = vec![false, true];
 
+        let key = b"this_is_my_key".to_vec();
         test_cases().into_iter().for_each(|plaintext| {
-            modes.iter().for_each(|mode| {
+            compresses.iter().for_each(|compress| {
                 encodings.iter().for_each(|codec| {
-                    compresses.iter().for_each(|compress| {
+                    modes.iter().for_each(|mode| {
+                        println!(
+                            "testing with mode: {mode}, compress: {compress}, encoding: {codec}"
+                        );
+
                         test_rfc_core_buf(plaintext.clone(), key.clone(), *mode, *codec, *compress)
                     })
                 })
