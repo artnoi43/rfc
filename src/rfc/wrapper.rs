@@ -81,3 +81,18 @@ where
         })
     }
 }
+
+#[test]
+fn test_decode_archived() {
+    let h = b"header_bytes".to_vec();
+    let d = b"data_bytes".to_vec();
+
+    let w = WrapperBytes::<Vec<u8>>(h.clone(), d.clone())
+        .encode()
+        .expect("failed to encode");
+
+    let archived = WrapperBytes::<Vec<u8>>::decode_archived(&w).expect("failed to decode_archived");
+
+    assert_eq!(h, archived.0.to_vec());
+    assert_eq!(d, archived.1.to_vec());
+}

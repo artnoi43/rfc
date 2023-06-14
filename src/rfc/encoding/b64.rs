@@ -4,6 +4,28 @@ use std::io::{Read, Write};
 
 use crate::rfc::error::RfcError;
 
+pub fn encode_b64_buf<R>(src: &mut R, src_len: usize) -> Result<Vec<u8>, RfcError>
+where
+    R: Read,
+{
+    let len_in_b64 = prealloc_to_b64(src_len);
+    let mut buf = Vec::with_capacity(len_in_b64);
+    encode_b64(src, &mut buf)?;
+
+    Ok(buf)
+}
+
+pub fn decode_b64_buf<R>(src: &mut R, encoded_len: usize) -> Result<Vec<u8>, RfcError>
+where
+    R: Read,
+{
+    let len_in_plain = prealloc_from_b64(encoded_len);
+    let mut buf = Vec::with_capacity(len_in_plain);
+    decode_b64(src, &mut buf)?;
+
+    Ok(buf)
+}
+
 pub fn encode_b64<S, D>(src: &mut S, dst: &mut D) -> Result<usize, RfcError>
 where
     S: Read,

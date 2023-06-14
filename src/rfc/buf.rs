@@ -38,7 +38,7 @@ where
 }
 
 /// Reads all bytes from `reader` into a new byte vector.
-pub fn bytes_from_reader<R>(mut reader: R, prealloc: Option<usize>) -> Result<Vec<u8>, RfcError>
+pub fn read_bytes<R>(mut reader: R, prealloc: Option<usize>) -> Result<Vec<u8>, RfcError>
 where
     R: Read,
 {
@@ -49,6 +49,16 @@ where
 
     buf.truncate(buf.len());
     Ok(buf)
+}
+
+#[test]
+fn test_read_bytes() {
+    let bytes = include_bytes!("../../Cargo.lock").to_vec();
+    for i in 0..bytes.len() + 10 {
+        let buf = read_bytes(&mut bytes.as_slice(), Some(i)).unwrap();
+        assert_eq!(bytes.len(), buf.len());
+        assert_eq!(bytes, buf);
+    }
 }
 
 pub fn write_to_writer<W, T>(mut writer: W, data: T) -> Result<(), RfcError>
@@ -63,14 +73,12 @@ where
     Ok(())
 }
 
-#[test]
-fn test_all_from_reader() {
-    let bytes = include_bytes!("../../Cargo.lock").to_vec();
-    for i in 0..bytes.len() + 10 {
-        let buf = bytes_from_reader(&mut bytes.as_slice(), Some(i)).unwrap();
-        assert_eq!(bytes.len(), buf.len());
-        assert_eq!(bytes, buf);
-    }
+pub fn write_bytes<W, T>(mut w: W, data: T) -> Result<usize, RfcError>
+where
+    W: Write,
+    T: AsRef<[u8]>,
+{
+    w.write(data.as_ref()).map_err(|err| RfcError::IoError(err))
 }
 
 // Fills buf with bytes

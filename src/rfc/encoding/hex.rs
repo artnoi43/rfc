@@ -2,14 +2,14 @@ use hex;
 
 use crate::rfc::error::RfcError;
 
-pub fn encode_hex<T>(plain: T) -> Vec<u8>
+pub fn encode_hex_buf<T>(plain: T) -> Vec<u8>
 where
     T: AsRef<[u8]>,
 {
     hex::encode(plain).as_bytes().to_vec()
 }
 
-pub fn decode_hex<T>(hex_data: T) -> Result<Vec<u8>, RfcError>
+pub fn decode_hex_buf<T>(hex_data: T) -> Result<Vec<u8>, RfcError>
 where
     T: AsRef<[u8]>,
 {
